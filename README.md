@@ -86,14 +86,27 @@ The [walkthrough](examples/automatic-context/README.md) explains every file and 
 
 ## Reviewable guards, never compilation writes
 
-- `snapshot` guards the selected source text.
-- Optional `context_snapshot` additionally guards the supported discovery model,
+- In both modes, omitted `snapshot` guards selected text using
+  `snapshots/<generated-function-name>.rs` from parsed `fn_sig` (not the snippet key,
+  module, or range). `r#type` becomes `type.rs`; Unicode names are retained.
+  Defaults use the same bases as explicit paths: package-relative inline,
+  configuration-directory-relative in TOML.
+- `snapshot = "path"` overrides the default; `snapshot = false` explicitly opts out.
+  `true` and empty strings are invalid. Same function names in one base share a path;
+  use distinct explicit paths for different bodies.
+- Optional, automatic-only `context_snapshot` has no default and additionally guards the supported discovery model,
   including normalized signature/body/output and declaration/dependency mappings.
 - `context_report` names a test-only accessor returning that model as TOML. A user-authored
   test may print it for review; you explicitly create/update the baseline yourself.
 
-Neither guard relocates code or proves semantic equivalence. A missing/mismatching guard
-fails compilation without updating any file. See the
+Previously unchecked omissions are now guarded: manually create/review the default
+baseline, retain a custom explicit path, or choose `snapshot = false`. Context-only
+guarding also requires `snapshot = false`.
+
+Neither guard relocates code or proves whole-program semantic equivalence. A missing
+default fails with its exact resolved path; missing/mismatching guards never fall back.
+Compilation never creates, writes, updates, approves, or prints baseline files.
+See the [snippet migration guide](docs/usage.md#migration-from-unchecked-omission) and the
 [context review workflow and limits](docs/context-snapshots.md).
 
 ## Guides and examples

@@ -3,7 +3,7 @@ mod support;
 use support::Consumer;
 
 const SOURCE: &str = "pub fn original(n: u8) -> u8 {\nstruct Counter { n: u8 }\nimpl Counter { fn finish(self) -> u8 { self.n + 1 } }\nlet counter = Counter { n };\ncounter.finish()\n}\n";
-const CONFIG: &str = "[snippets.automatic]\ncontext = \"auto\"\nfn_sig = \"fn extracted(n: u8) -> u8\"\nmodule = \"../source/library.rs\"\nstart = 4\nend = 4\noutput = \"counter.finish()\"\nsnapshot = \"body.rs\"\ncontext_report = \"review_data\"\n\n[snippets.ordinary]\nfn_sig = \"fn ordinary(n: u8) -> u8\"\nmodule = \"../fixtures/body.txt\"\nstart = 1\nend = 1\noutput = \"value\"\n";
+const CONFIG: &str = "[snippets.automatic]\ncontext = \"auto\"\nfn_sig = \"fn extracted(n: u8) -> u8\"\nmodule = \"../source/library.rs\"\nstart = 4\nend = 4\noutput = \"counter.finish()\"\nsnapshot = \"body.rs\"\ncontext_report = \"review_data\"\n\n[snippets.ordinary]\nsnapshot = false\nfn_sig = \"fn ordinary(n: u8) -> u8\"\nmodule = \"../fixtures/body.txt\"\nstart = 1\nend = 1\noutput = \"value\"\n";
 const CALLER: &str = "checkmate::extract_fn!(config = \"review/definitions.toml\", snippet = \"automatic\");\ncheckmate::extract_fn!(config = \"review/definitions.toml\", snippet = \"ordinary\");\n#[test]\nfn results() {\nlet auto: u8 = std::fs::read_to_string(\"expected_auto.txt\").unwrap().trim().parse().unwrap();\nlet explicit: u8 = std::fs::read_to_string(\"expected_ordinary.txt\").unwrap().trim().parse().unwrap();\nfor n in [0, 7, 200] { assert_eq!(extracted(n), n + auto); assert_eq!(extracted(n), regression_consumer::original(n)); assert_eq!(ordinary(n), n + explicit); }\n}\n#[test]\n#[ignore]\nfn inspect() { println!(\"BEGIN_REVIEW\\n{}END_REVIEW\", review_data()); }\n";
 
 fn guarded(config: &str) -> String {
@@ -143,7 +143,7 @@ fn ordinary_macro_expands_in_a_normal_build_but_its_function_is_test_only() {
         &format!("{manifest}\n[[bin]]\nname = \"driver\"\npath = \"driver/main.rs\"\n"),
     );
     c.write("fixtures/body.txt", "let value = n + 2;\n");
-    let invocation = "checkmate::extract_fn! { fn_sig = \"fn extracted(n: u8) -> u8\", module = \"fixtures/body.txt\", start = 1, end = 1, output = value }\n";
+    let invocation = "checkmate::extract_fn! { snapshot = false, fn_sig = \"fn extracted(n: u8) -> u8\", module = \"fixtures/body.txt\", start = 1, end = 1, output = value }\n";
     c.write("driver/main.rs", &format!("{invocation}fn main() {{}}\n"));
     c.run(&["build", "--bin", "driver"], &[]);
     c.write(

@@ -136,11 +136,22 @@ Tasks 010–011 implement this as a [structured diagnostic boundary](diagnostics
 reports include snippet identity, typed categories, optional subjects/sites/chains, bounded
 UTF-8-safe output, and remedies. Ordinary-mode errors have not been replaced or relabeled.
 
-Task 012 adds a separate [versioned context baseline](context-snapshots.md). Existing
-snippet snapshots remain readable. Discovered declaration contents and dependency
+Automatic mode has the same default snippet guard as ordinary mode: omitted
+`snapshot` uses `snapshots/<generated-function-name>.rs` from parsed `fn_sig`, not the
+snippet key/module/range. Raw `r#type` becomes `type.rs`; Unicode names are retained.
+Inline defaults are package-relative; TOML defaults are configuration-directory-relative,
+like explicit paths. `snapshot = "path"` wins, `false` disables the guard, and
+`true`/empty strings are invalid. Same names in one base share a path; use explicit
+distinct paths for different bodies. Missing defaults report the exact resolved path;
+missing/mismatching guards never fall back or automatically move ranges.
+See [migration from unchecked omission](usage.md#migration-from-unchecked-omission).
+
+The separate [versioned context baseline](context-snapshots.md) remains optional,
+automatic-only, and has no default. Context-only guarding requires `snapshot = false`.
+Existing explicit snippet paths remain valid. Discovered declaration contents and dependency
 mappings use logical identities rather than checkout paths or transient IDs. Ambiguous
 anchors fail instead of guessing. A test-only accessor provides review data; compilation
-never creates or approves either kind of baseline. Original nodes remain terminals,
+never creates, writes, updates, approves, or prints either kind of baseline. Original nodes remain terminals,
 so this is not a fingerprint of all private dependencies or compiler/runtime behavior.
 
 ## Completion evidence

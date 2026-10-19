@@ -1,7 +1,13 @@
 # Reviewed automatic-context snapshots
 
-Task 012 adds optional context guards to `context = "auto"`. Ordinary snippet snapshots
-remain unchanged. Neither compilation nor the review accessor writes any files.
+Context guards are optional and available only with `context = "auto"`; they have no
+default path. Snippet guards are enabled by default in both ordinary and automatic
+mode: omitted `snapshot` uses `snapshots/<generated-function-name>.rs` from parsed
+`fn_sig`. Explicit `snapshot = "path"` wins; `snapshot = false` disables it (`true`
+and empty strings are invalid). To use only a context guard, set `snapshot = false`.
+See [default paths and migration](usage.md#detecting-line-drift-with-snapshots).
+Neither compilation nor the review accessor creates, writes, updates, approves, or
+prints baseline files.
 
 Start with the [complete public workflow](../examples/automatic-context/README.md),
 which reuses an original struct and demonstrates configuration-relative paths and both
@@ -25,9 +31,9 @@ Both options require automatic mode and its existing
   Names emitted by separate macro invocations are not preflighted: duplicates are still
   rejected by Rust (`E0428`), not remapped into a Checkmate diagnostic.
 
-Either can be used alone, or together. Omission of both preserves task-011 automatic
-behavior, including cases whose local declarations have no supported stable snapshot
-anchor. Omission of `context` preserves ordinary extraction; these options are rejected
+Either context option can be used alone, or together. Omission of both skips context
+baseline/report processing, including stable snapshot anchor requirements, but does
+not disable the default snippet guard. Omission of `context` preserves ordinary extraction; these options are rejected
 there, not silently ignored. Do not mix inline options with `config`/`snippet`.
 
 For example, a configured definition can add:
@@ -44,8 +50,8 @@ that behavior, including in out-of-line caller modules that Checkmate does not r
 
 ## Create or update a baseline explicitly
 
-1. Add `context_report`, initially **without** `context_snapshot`. Keep any existing
-   snippet `snapshot` guard. Supply the same signature/selection/output you intend to test.
+1. Add `context_report`, initially **without** `context_snapshot`. Keep the default or
+   explicit snippet guard and manually create/review its baseline if needed. Supply the same signature/selection/output you intend to test.
 2. Add a user-authored inspection test in the verified integration-test root:
 
    ```rust,ignore

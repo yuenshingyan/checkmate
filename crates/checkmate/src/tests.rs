@@ -13,6 +13,8 @@ fn args(extra: TokenStream2) -> Invocation {
     syn::parse2(quote! {
         fn_sig = "fn add_if(a: i32, b: i32) -> i32",
         module = "tests/fixtures/snippet.rs",
+        // These tests isolate range/syntax/emission errors, not snapshot drift.
+        snapshot = false,
         #extra
     })
     .unwrap()
@@ -269,7 +271,7 @@ fn config_errors_name_the_configuration() {
 }
 
 #[test]
-fn config_can_omit_output_and_snapshot() {
+fn config_can_omit_output_and_uses_a_reviewed_default_snapshot() {
     let root = project();
     let config = CONFIG
         .replace("output = \"c\"", "")
@@ -280,6 +282,14 @@ fn config_can_omit_output_and_snapshot() {
         "// outside\na + 1\n",
     )
     .unwrap();
+    assert!(
+        configured(root.path())
+            .unwrap_err()
+            .to_string()
+            .contains("snippet differs")
+    );
+    // Explicit review in the test harness, never an automatic compiler update.
+    fs::write(root.path().join("definitions/snapshots/demo.rs"), "a + 1\n").unwrap();
     assert!(configured(root.path()).is_ok());
 }
 

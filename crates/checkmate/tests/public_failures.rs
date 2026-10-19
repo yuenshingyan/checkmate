@@ -4,7 +4,7 @@ use support::Consumer;
 
 fn automatic(signature: &str, line: usize, output: &str) -> String {
     format!(
-        "checkmate::extract_fn! {{ fn_sig = {signature:?}, module = \"src/lib.rs\", start = {line}, end = {line}, output = {output}, context = \"auto\" }}\n"
+        "checkmate::extract_fn! {{ snapshot = false, fn_sig = {signature:?}, module = \"src/lib.rs\", start = {line}, end = {line}, output = {output}, context = \"auto\" }}\n"
     )
 }
 
@@ -153,7 +153,7 @@ fn planner_failures_keep_categories_subjects_and_emit_no_partial_api() {
         // but duplicate definitions are diagnosed during expansion. Ordinary
         // macro backend restoration after failure is covered in automatic.rs.
         let fallback = ["extracted", "REVIEW"].map(|name| format!(
-            "checkmate::extract_fn! {{ fn_sig = \"fn {name}() -> u8\", module = \"manual.rs\", start = 1, end = 1, output = value }}\n"
+            "checkmate::extract_fn! {{ snapshot = false, fn_sig = \"fn {name}() -> u8\", module = \"manual.rs\", start = 1, end = 1, output = value }}\n"
         )).join("");
         c.write("tests/probe.rs", &format!("{invocation}{fallback}"));
         let report = c.test(&[code, subject]);

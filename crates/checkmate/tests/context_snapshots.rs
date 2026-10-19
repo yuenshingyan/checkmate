@@ -118,7 +118,7 @@ const PRINT: &str = "#[test]\nfn review() { println!(\"BEGIN_CONTEXT\\n{}END_CON
 
 fn inline(options: &str) -> String {
     format!(
-        "checkmate::extract_fn! {{ fn_sig = \"fn extracted(n: u8) -> u8\", module = \"src/lib.rs\", start = 5, end = 5, output = counter.finish(), context = \"auto\", {options} }}\n"
+        "checkmate::extract_fn! {{ snapshot = false, fn_sig = \"fn extracted(n: u8) -> u8\", module = \"src/lib.rs\", start = 5, end = 5, output = counter.finish(), context = \"auto\", {options} }}\n"
     )
 }
 
@@ -247,7 +247,7 @@ fn report_names_auto_only_options_and_test_only_visibility() {
     // 2 rather than the original 1. Accessors plus identifier checks avoid this.
     let pattern_source = "pub fn original(text: &str) -> u8 {\nlet answer = match text { n => 1, _ => 2 };\nanswer\n}\n";
     c.write("src/lib.rs", pattern_source);
-    let pattern_call = "checkmate::extract_fn! { fn_sig = \"fn extracted(text: &str) -> u8\", module = \"src/lib.rs\", start = 2, end = 2, output = answer, context = \"auto\", context_report = \"n\" }\n";
+    let pattern_call = "checkmate::extract_fn! { snapshot = false, fn_sig = \"fn extracted(text: &str) -> u8\", module = \"src/lib.rs\", start = 2, end = 2, output = answer, context = \"auto\", context_report = \"n\" }\n";
     c.write("tests/probe.rs", pattern_call);
     c.check(&["CM013", "generated-plan identifier"]);
     c.write("tests/probe.rs", &format!("{}\n#[test] fn unchanged() {{ assert_eq!(extracted(\"hello\"), context_consumer::original(\"hello\")); assert!(review_data().contains(\"checkmate-context\")); }}\n", pattern_call.replace("context_report = \"n\"", "context_report = \"review_data\"")));
@@ -262,7 +262,7 @@ fn report_names_auto_only_options_and_test_only_visibility() {
         "tests/support.rs",
         "use super::*;\npub fn answer(text: &str) -> u8 { match text { n => 1, _ => 2 } }\n",
     );
-    c.write("tests/probe.rs", "checkmate::extract_fn! { fn_sig = \"fn extracted() -> u8\", module = \"src/lib.rs\", start = 2, end = 2, output = answer, context = \"auto\", context_report = \"n\" }\nmod support;\n#[test] fn unchanged_child() { assert_eq!(support::answer(\"hello\"), 1); assert_eq!(extracted(), 1); assert!(n().contains(\"checkmate-context\")); }\n");
+    c.write("tests/probe.rs", "checkmate::extract_fn! { snapshot = false, fn_sig = \"fn extracted() -> u8\", module = \"src/lib.rs\", start = 2, end = 2, output = answer, context = \"auto\", context_report = \"n\" }\nmod support;\n#[test] fn unchanged_child() { assert_eq!(support::answer(\"hello\"), 1); assert_eq!(extracted(), 1); assert!(n().contains(\"checkmate-context\")); }\n");
     c.check(&[]);
     c.write("src/lib.rs", SOURCE);
     for name in ["n", "None"] {
@@ -288,7 +288,7 @@ fn report_names_auto_only_options_and_test_only_visibility() {
         let caller = inline(option).replace("context = \"auto\",", "");
         c.write("tests/probe.rs", &caller);
         c.check(&["requires context = \"auto\""]);
-        c.write("checkmate.toml", &format!("[snippets.demo]\nfn_sig = \"fn extracted(n: u8) -> u8\"\nmodule = \"src/lib.rs\"\nstart = 5\nend = 5\noutput = \"counter.finish()\"\n{option}\n"));
+        c.write("checkmate.toml", &format!("[snippets.demo]\nsnapshot = false\nfn_sig = \"fn extracted(n: u8) -> u8\"\nmodule = \"src/lib.rs\"\nstart = 5\nend = 5\noutput = \"counter.finish()\"\n{option}\n"));
         c.write(
             "tests/probe.rs",
             "checkmate::extract_fn!(config = \"checkmate.toml\", snippet = \"demo\");\n",

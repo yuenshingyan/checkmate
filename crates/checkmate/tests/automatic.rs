@@ -100,7 +100,7 @@ fn originals_local_nominals_methods_and_manual_backend_restoration() {
     c.write("checkmate.toml", "[snippets.local]\ncontext = \"auto\"\nfn_sig = \"fn configured(n: u8) -> u8\"\nmodule = \"src/lib.rs\"\nstart = 4\nend = 4\noutput = \"counter.finish()\"\nsnapshot = \"snapshot.rs\"\n");
     c.write("snapshot.rs", "let counter = Counter { n };\n");
     c.write("manual.rs", "let value = n + 2;\n");
-    let manual = "checkmate::extract_fn! { snapshot = false, fn_sig = \"fn manual(n: u8) -> u8\", module = \"manual.rs\", start = 1, end = 1, output = value }\n";
+    let manual = "checkmate::extract_fn! { snapshot = false, context = \"explicit\", fn_sig = \"fn manual(n: u8) -> u8\", module = \"manual.rs\", start = 1, end = 1, output = value }\n";
     c.write("tests/probe.rs", &format!(
         "{manual}{}checkmate::extract_fn!(config = \"checkmate.toml\", snippet = \"local\");\n{}{}{}{}\n#[test]\nfn runs() {{\nfor n in [0, 7, 253] {{ assert_eq!(inline(n), automatic_consumer::original(n)); assert_eq!(configured(n), inline(n)); assert_eq!(manual(n), n + 2); assert_eq!(manual_after(n), n + 2); }}\nlet _: automatic_consumer::Account = build(std::string::String::from(\"Ada\"));\nassert_eq!(build(std::string::String::from(\"Ada\")).name, \"Ada\");\nassert_eq!(local(8).finish(), 9);\nassert_ne!(std::any::Any::type_id(&nominal()), automatic_consumer::nominal_id());\n}}\n",
         automatic("fn inline(n: u8) -> u8", 4, 4, "counter.finish()"),
@@ -138,7 +138,7 @@ fn semantic_failures_have_public_diagnostics() {
     c.write("manual.rs", "let value = 42;\n");
     c.write(
         "tests/probe.rs",
-        &format!("{}\ncheckmate::extract_fn! {{ snapshot = false, fn_sig = \"fn after_error() -> i32\", module = \"manual.rs\", start = 1, end = 1, output = value }}\n", automatic("fn missing() -> u8", 4, 4, "counter.finish()")),
+        &format!("{}\ncheckmate::extract_fn! {{ snapshot = false, context = \"explicit\", fn_sig = \"fn after_error() -> i32\", module = \"manual.rs\", start = 1, end = 1, output = value }}\n", automatic("fn missing() -> u8", 4, 4, "counter.finish()")),
     );
     c.check(&["CM004", "typed fn_sig parameter"]);
 

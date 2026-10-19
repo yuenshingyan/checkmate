@@ -40,6 +40,7 @@ fn omitted_snapshot_uses_the_parsed_function_name_in_both_modes_and_path_bases()
         for (tokens, text) in [
             (quote! {}, ""),
             (quote! { context = "auto" }, "context = \"auto\""),
+            (quote! { context = "explicit" }, "context = \"explicit\""),
         ] {
             let direct = inline(root.path(), signature, tokens).unwrap();
             let named = configured(root.path(), signature, text).unwrap();
@@ -64,7 +65,7 @@ fn explicit_path_and_false_override_defaults_in_both_forms() {
         let (tokens, text) = if context {
             (quote! { context = "auto", }, "context = \"auto\"\n")
         } else {
-            (quote! {}, "")
+            (quote! { context = "explicit", }, "context = \"explicit\"\n")
         };
         for resolved in [
             inline(

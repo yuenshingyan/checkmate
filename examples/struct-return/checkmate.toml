@@ -1,4 +1,5 @@
 [snippets.build_user]
+context = "explicit"
 fn_sig = "fn build_user(name: String, active: bool) -> Account"
 module = "src/lib.rs"
 start = 17
@@ -7,6 +8,7 @@ output = "user"
 snapshot = "snapshots/user.rs"
 
 [snippets.user_fields]
+context = "explicit"
 fn_sig = "fn user_fields(name: String, active: bool) -> (String, bool)"
 module = "src/lib.rs"
 start = 17
@@ -15,6 +17,7 @@ output = "(user.name, user.active)"
 snapshot = "snapshots/user.rs"
 
 [snippets.count_values]
+context = "explicit"
 fn_sig = "fn count_values(values: &[i32]) -> usize"
 module = "src/lib.rs"
 start = 25

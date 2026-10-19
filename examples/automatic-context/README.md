@@ -42,7 +42,6 @@ retained binding; no lint attribute or rewrite is added to the original source.
 
 ```toml
 [snippets.invoice]
-context = "auto"
 fn_sig = "fn extracted_invoice(total: u64, quantity: u32) -> Invoice"
 module = "../src/lib.rs"
 start = 8
@@ -53,6 +52,8 @@ context_report = "invoice_context"
 context_snapshot = "../snapshots/invoice.context.toml"
 ```
 
+Omitted `context` selects automatic discovery; `context = "auto"` is equivalent.
+Use `context = "explicit"` only when you intend ordinary extraction with manual context.
 You choose the signature, typed inputs, inclusive range, output, guards, and tests.
 Automatic discovery finds the **original** `Invoice`; no import or declaration range is
 provided. The paths inside this file are relative to **`metadata/`**, not the workspace

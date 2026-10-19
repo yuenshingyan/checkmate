@@ -120,6 +120,30 @@ Verification: **301 Cargo tests pass**, three ignored. Existing repository examp
 inputs remain unchanged. The real editor regression still checks expansion, types, negative
 input rejection, and recovery separately from Cargo. Counts are not a new coverage measurement.
 
+## Default automatic-context follow-up
+
+Omitted `context` now selects the same strict automatic pipeline as `context = "auto"`.
+Ordinary extraction requires `context = "explicit"`; there is no fallback on automatic
+placement, input, or resolution failures. Snapshot defaults and opt-outs are unchanged.
+
+- [`default_context.rs`](../crates/checkmate/tests/default_context.rs) adds three native
+  groups: default original-type reuse without imports, both default snippet guards and
+  explicitly reviewed context guards, equivalent explicit-auto behavior, context drift,
+  rejection of unproven placements/sources and missing inputs, and rejection of context
+  options in explicit mode. Positive explicit-mode controls use the same otherwise-valid
+  selections that fail automatic placement checks.
+- Option tests cover omission/auto/explicit parity, context-option availability with
+  omission, invalid modes, and mixed/duplicate mode options. Ordinary regression fixtures
+  and example metadata explicitly select ordinary mode instead of relying on omission.
+- Public automatic examples now omit `context`; the live LSP harness therefore exercises
+  the new default, including expansion, hovers, guarded reports, negative input rejection,
+  and recovery. Both inspection printers still exactly match their context baselines.
+
+Verification: **304 workspace tests pass**, three ignored; formatting, strict Clippy,
+and warning-denying rustdoc pass. Selected source and snapshot bytes remain unchanged;
+only extraction metadata/test options and documentation are migrated. These are native
+and editor regressions, not formal guarantees or new coverage measurements.
+
 ## Existing complementary checks
 
 - [`automatic.rs`](../crates/checkmate/tests/automatic.rs): library-root/caller placement,

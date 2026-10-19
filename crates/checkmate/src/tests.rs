@@ -11,6 +11,7 @@ use crate::source::{bounded_line, preview};
 
 fn args(extra: TokenStream2) -> Invocation {
     syn::parse2(quote! {
+        context = "explicit",
         fn_sig = "fn add_if(a: i32, b: i32) -> i32",
         module = "tests/fixtures/snippet.rs",
         // These tests isolate range/syntax/emission errors, not snapshot drift.
@@ -120,6 +121,7 @@ fn snapshot_comparison_normalizes_line_endings_but_preserves_content() {
 
 const CONFIG: &str = r#"
 [snippets.demo]
+context = "explicit"
 fn_sig = "fn demo(a: i32) -> i32"
 module = "source.rs"
 start = 2
@@ -176,6 +178,7 @@ fn inline_snapshot_uses_package_root() {
     let root = project();
     let generated = expand(
         syn::parse2(quote! {
+            context = "explicit",
             fn_sig = "fn demo(a: i32) -> i32",
             module = "definitions/source.rs", start = 2, end = 2, output = c,
             snapshot = "definitions/snapshots/demo.rs",

@@ -4,10 +4,11 @@
 
 This package supplies one ordinary Rust source file for three distinct demonstrations:
 
-1. **Ordinary public API:** extract and test snippets with explicit imports.
-2. **Public automatic mode:** [`tests/automatic.rs`](tests/automatic.rs) adds
-   `context = "auto"` without importing `Account`; the result retains the original
-   library type. The source and existing configuration/snapshots/tests are unchanged.
+1. **Ordinary public API:** `context = "explicit"` in the definitions selects ordinary
+   extraction; tests supply explicit imports.
+2. **Public automatic mode:** [`tests/automatic.rs`](tests/automatic.rs) omits `context`
+   and does not import `Account`; the default automatic mode retains the original
+   library type. Selected source and snapshot contents remain unchanged.
 3. **Internal walkthroughs:** inspect the individual analysis passes independently.
 
 ## Source remains ordinary Rust
@@ -31,6 +32,7 @@ The containing function still supplies its own `"Alice"` and `true` inputs.
 
 ```toml
 [snippets.build_user]
+context = "explicit"
 fn_sig = "fn build_user(name: String, active: bool) -> Account"
 module = "src/lib.rs"
 start = 17

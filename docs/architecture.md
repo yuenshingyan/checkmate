@@ -27,7 +27,7 @@ All paths below are inside `crates/checkmate/src/`.
 | `arguments.rs` | Inline/config invocation syntax, duplicate/unknown option validation |
 | `config.rs` | TOML schema, named snippet lookup, package/config-relative path resolution |
 | `source.rs` | Read-only UTF-8 source IO, dependency path literals, bounded source previews |
-| `automatic.rs`, `automatic/placement.rs` | Opt-in orchestration, parser-backend boundary, verified integration-test placement and caller namespace checks |
+| `automatic.rs`, `automatic/placement.rs` | Default automatic orchestration, parser-backend boundary, verified integration-test placement and caller namespace checks |
 | `source/ast.rs` | Whole-file AST, exact selection, enclosing scope locations |
 | `scope.rs`, `scope/build.rs`, `scope/patterns.rs` | Lexical namespaces, scope tree, declaration identities, binding visibility and pattern validation |
 | `scope/imports.rs` | Explicit import trees, aliases and module paths; standalone provenance inspection remains test-only |
@@ -45,6 +45,10 @@ All paths below are inside `crates/checkmate/src/`.
 | `walkthroughs.rs` | Executable documentation using the examples' real source/config |
 
 ## Expansion pipeline
+
+Configuration resolution selects automatic discovery for omitted `context` or
+`context = "auto"`. `context = "explicit"` selects the ordinary pipeline below.
+Other values are rejected; automatic errors never fall back to this pipeline.
 
 ```text
 extract_fn! invocation
@@ -77,7 +81,7 @@ optional, automatic-only, with no default; context-only guarding requires
 input types, and output remain explicit; surrounding runtime values are never captured.
 Ordinary rustc type, ownership, and visibility checks still apply.
 
-`context = "auto"` takes a separate route after configuration resolution:
+Omitted `context` and `context = "auto"` take the automatic route after configuration resolution:
 
 ```text
 signature-derived default guard + snapshot/range checks → whole-file AST and selection
@@ -109,7 +113,7 @@ invocation spans. The ordinary extraction path retains its original compiler tok
 ## Tests
 
 - `src/tests.rs`: isolated parser/expansion tests, using temporary projects where needed.
-- `src/options_tests.rs`, `src/automatic/tests.rs`: opt-in parity, checked placement,
+- `src/options_tests.rs`, `src/automatic/tests.rs`: mode selection, checked placement,
   complete dependency markers, all-item test gating, and fail-closed plans.
 - `tests/caller_spans.rs`: original argument locations, literal delimiters/config calls,
   and continued rejection of forwarded, nested, and included invocations.
@@ -164,9 +168,16 @@ invocation spans. The ordinary extraction path retains its original compiler tok
 ## Automatic-context boundary
 
 The [design contract](automatic-context.md) defines the supported subset. The public
-opt-in connects AST/scope/resolver/graph/promotion analysis for verified library-source
-and package integration-test roots. Omission preserves ordinary extraction. Optional
+default connects AST/scope/resolver/graph/promotion analysis for verified library-source
+and package integration-test roots through literal qualified calls. Ordinary extraction
+requires `context = "explicit"`, including binary sources, unit-test usage, and bare
+imported macro names. Set it in inline metadata or the TOML definition, not a config
+call. Migration changes metadata/tests/configurations, not selected production snippets,
+source macro definitions, or snapshot contents. No source annotations are needed.
+Historical task records describe implementation history rather than current defaults. Optional
 [context snapshots](context-snapshots.md) use the same validated graph as promotion.
+`context_report` and `context_snapshot` are accepted with omitted `context` and
+rejected in explicit mode; neither enables a fallback or proves full Rust semantics.
 The [regression matrix](regression-tests.md) and
 [complete example](../examples/automatic-context/README.md) cover the public workflow.
 The 14-task milestone is complete; full compiler inference, arbitrary source discovery,

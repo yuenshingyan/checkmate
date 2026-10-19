@@ -6,4 +6,3 @@ start = 6
 end = 9
 output = "user"
 snapshot = "snapshots/user.rs"
-context = "auto"

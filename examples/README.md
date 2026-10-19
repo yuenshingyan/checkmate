@@ -22,6 +22,8 @@ cargo test -p checkmate-struct-example
 cargo test -p checkmate-local-example -p checkmate-inherent-example
 ```
 
+The basic and ordinary struct-return definitions use `context = "explicit"`. Public
+automatic examples omit `context`, demonstrating the default (explicit `"auto"` also works).
 Only the basic package has a `cargo run` target. Automatic mode requires a verified
 library root and literal qualified invocation at a package integration-test root;
 these library examples run through `cargo test`.
@@ -49,9 +51,10 @@ test; it is not an intentionally broken workspace build. The missing-input walkt
 prints a [structured diagnostic](../docs/diagnostics.md) with snippet identity and bounded
 source context.
 
-Separate `tests/automatic.rs` files now exercise public `context = "auto"` at verified
-integration-test roots. Local/inherent examples use new `automatic.toml` files; existing
-walkthrough source/configuration/snapshot inputs remain unchanged. See the
+Separate `tests/automatic.rs` files exercise default automatic context at verified
+integration-test roots. Local/inherent examples use `automatic.toml` files; selected
+source and snapshot contents remain unchanged. Ordinary extraction metadata now
+explicitly selects `context = "explicit"`. See the
 [public placement restrictions](../docs/usage.md#automatic-context-opt-in).
 Task 012 adds a separate local-type context baseline and an ignored, explicitly run
 inspection test. [Context snapshots](../docs/context-snapshots.md) protect the supported

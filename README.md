@@ -13,13 +13,20 @@ the original function's runtime values.
 
 | Mode | What Checkmate does | Starting point |
 | --- | --- | --- |
-| Ordinary (omit `context`) | Copies the selected statements/expression into your function; you provide needed imports/context at the invocation site | [Basic example](examples/basic/checkmate.toml) |
-| Automatic (`context = "auto"`) | Discovers supported context for a verified **library-root → package integration-test-root** extraction; reuses accessible originals or promotes supported local types | [Complete automatic example](examples/automatic-context/README.md) |
+| Ordinary (`context = "explicit"`) | Copies the selected statements/expression into your function; you provide needed imports/context at the invocation site | [Basic example](examples/basic/checkmate.toml) |
+| Automatic (default; omit `context` or use `context = "auto"`) | Discovers supported context for a verified **library-root → package integration-test-root** extraction; reuses accessible originals or promotes supported local types | [Complete automatic example](examples/automatic-context/README.md) |
 
 Automatic mode preserves original declaration identity and privacy. Copied function-local
 structs/enums have **new nominal identity**; aliases remain transparent. It is conservative
 syntax analysis, not full compiler inference. Unsupported or ambiguous context fails—there
 is no silent fallback. See the [supported subset](docs/automatic-context.md).
+
+To retain existing ordinary extraction, add `context = "explicit"` to inline metadata
+or the TOML snippet definition, never beside `config`/`snippet` in a config call.
+Binary sources, unit-test invocations, and bare imported macro names require this
+ordinary mode. Automatic mode requires a literal qualified call at the verified
+integration-test root. Do not change selected production source, macro definitions,
+or snapshot contents for this migration; no source annotations are needed.
 
 ## Run the examples
 
@@ -36,10 +43,11 @@ user-authored integration tests; it does not have a `cargo run` target.
 
 ## Ordinary extraction
 
-The unchanged basic example keeps metadata in `examples/basic/checkmate.toml`:
+The basic example keeps ordinary-mode metadata in `examples/basic/checkmate.toml`:
 
 ```toml
 [snippets.add_if]
+context = "explicit"
 fn_sig = "fn add_if(a: f32, b: f32) -> f32"
 module = "src/main.rs"
 start = 7
@@ -80,8 +88,9 @@ fn returned_value_is_the_original_library_type() {
 }
 ```
 
-The [configuration](examples/automatic-context/metadata/snippets.toml) opts in with
-`context = "auto"`. No `Invoice` import or manual declaration range is supplied.
+The [configuration](examples/automatic-context/metadata/snippets.toml) omits `context`
+and uses the automatic default; explicit `context = "auto"` is equivalent. No `Invoice`
+import or manual declaration range is supplied.
 The [walkthrough](examples/automatic-context/README.md) explains every file and path.
 
 ## Reviewable guards, never compilation writes
@@ -96,6 +105,8 @@ The [walkthrough](examples/automatic-context/README.md) explains every file and 
   use distinct explicit paths for different bodies.
 - Optional, automatic-only `context_snapshot` has no default and additionally guards the supported discovery model,
   including normalized signature/body/output and declaration/dependency mappings.
+- Both context options are valid when `context` is omitted (automatic mode) and
+  rejected with `context = "explicit"`.
 - `context_report` names a test-only accessor returning that model as TOML. A user-authored
   test may print it for review; you explicitly create/update the baseline yourself.
 

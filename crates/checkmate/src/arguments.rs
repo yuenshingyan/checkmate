@@ -6,8 +6,8 @@ use syn::{Expr, Ident, Lit, LitInt, LitStr, Token};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(crate) enum Context {
-    #[default]
     Explicit,
+    #[default]
     Auto,
 }
 
@@ -15,7 +15,8 @@ impl Context {
     pub(crate) fn parse(value: &str) -> Result<Self, &'static str> {
         match value {
             "auto" => Ok(Self::Auto),
-            _ => Err("invalid context; expected \"auto\""),
+            "explicit" => Ok(Self::Explicit),
+            _ => Err("invalid context; expected \"auto\" or \"explicit\""),
         }
     }
 }

@@ -5,7 +5,6 @@ checkmate::extract_fn! {
     end = 20,
     output = user,
     snapshot = "snapshots/user.rs",
-    context = "auto",
 }
 
 #[test]

@@ -285,10 +285,10 @@ fn report_names_auto_only_options_and_test_only_visibility() {
         "context_snapshot = \"missing.toml\"",
         "context_report = \"CONTEXT\"",
     ] {
-        let caller = inline(option).replace("context = \"auto\",", "");
+        let caller = inline(option).replace("context = \"auto\"", "context = \"explicit\"");
         c.write("tests/probe.rs", &caller);
         c.check(&["requires context = \"auto\""]);
-        c.write("checkmate.toml", &format!("[snippets.demo]\nsnapshot = false\nfn_sig = \"fn extracted(n: u8) -> u8\"\nmodule = \"src/lib.rs\"\nstart = 5\nend = 5\noutput = \"counter.finish()\"\n{option}\n"));
+        c.write("checkmate.toml", &format!("[snippets.demo]\ncontext = \"explicit\"\nsnapshot = false\nfn_sig = \"fn extracted(n: u8) -> u8\"\nmodule = \"src/lib.rs\"\nstart = 5\nend = 5\noutput = \"counter.finish()\"\n{option}\n"));
         c.write(
             "tests/probe.rs",
             "checkmate::extract_fn!(config = \"checkmate.toml\", snippet = \"demo\");\n",

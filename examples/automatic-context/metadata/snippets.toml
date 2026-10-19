@@ -1,5 +1,4 @@
 [snippets.invoice]
-context = "auto"
 fn_sig = "fn extracted_invoice(total: u64, quantity: u32) -> Invoice"
 module = "../src/lib.rs"
 start = 8

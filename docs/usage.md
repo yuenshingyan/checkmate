@@ -24,6 +24,7 @@ checkmate = { path = "../../crates/checkmate" }
 use checkmate::extract_fn;
 
 extract_fn! {
+    context = "explicit",
     fn_sig = "fn add_if(a: f32, b: f32) -> f32",
     module = "src/main.rs",
     start = 7,
@@ -43,10 +44,10 @@ under a package's `tests/` directory are already test-only.
 
 ## Choose a workflow
 
-- **Ordinary extraction (omit `context`)**: supply any required context in the test
+- **Ordinary extraction (`context = "explicit"`)**: supply any required context in the test
   scope yourself. Use this for standalone statement fixtures, binary sources, or
   context outside automatic discovery's supported subset.
-- **Automatic context (`context = "auto"`)**: discover supported declarations from a
+- **Automatic context (default; omit `context` or use `context = "auto"`)**: discover supported declarations from a
   verified library root, invoked literally at an integration-test crate root. This
   saves manual declaration plumbing, not test design or input typing.
 
@@ -54,6 +55,16 @@ In both modes you choose the range, explicit typed inputs, output, and assertion
 Discovery does not run earlier initializers, capture runtime values, infer a full
 signature, or generate tests. All shell commands below run from the **repository
 root**; macro/config path bases are specified separately.
+
+### Migration to automatic-by-default
+
+For existing ordinary usage, add `context = "explicit"` to the inline extraction
+metadata or TOML snippet definition, not to a `config`/`snippet` call. This includes
+binary source extraction, unit-test invocations, standalone fixtures, and bare imported
+macro names. Tests and configurations may change; keep selected production snippets,
+source macro definitions, and reviewed snapshot contents unchanged. No source
+annotations are required. Snapshot defaults and path bases are unchanged by this
+mode migration. Historical task records describe implementation history, not current defaults.
 
 ## Inline options
 
@@ -70,13 +81,15 @@ root**; macro/config path bases are specified separately.
   `snapshot = false` explicitly disables the snippet guard. `true` and an empty string
   are invalid. Inline paths (including the default) are relative to the invoking
   package's `Cargo.toml`. Missing files and mismatches fail compilation.
-- `context` (optional): only `"auto"` is accepted. Omission keeps ordinary extraction.
-  See the placement and supported-context restrictions below.
+- `context` (optional): omission or `"auto"` selects automatic discovery;
+  `"explicit"` selects ordinary extraction. Other values are rejected.
+  Automatic failure never falls back to ordinary extraction; placement restrictions still apply.
 - `context_snapshot` (optional, automatic mode only): path to a reviewed, versioned
   context baseline. Like `snapshot`, inline paths are package-relative.
 - `context_report` (optional, automatic mode only): a Rust identifier in a string,
   naming a test-only accessor returning the full TOML model for explicit inspection.
   Prefer a distinct snake_case name; see [context snapshots](context-snapshots.md).
+  Both context options are valid with omitted `context` and rejected in explicit mode.
 
 The example generates the equivalent of:
 
@@ -105,6 +118,7 @@ Keep extraction metadata in a TOML file rather than in test code. For example,
 
 ```toml
 [snippets.add_if]
+context = "explicit"
 fn_sig = "fn add_if(a: f32, b: f32) -> f32"
 module = "src/main.rs"
 start = 7
@@ -124,7 +138,8 @@ extract_fn!(config = "checkmate.toml", snippet = "add_if");
 Each `[snippets.NAME]` defines one extraction; a file can contain multiple definitions.
 `output` is a Rust expression **inside a TOML string**. `output`, `snapshot`,
 `context`, `context_snapshot`, and `context_report` are optional; omitting `snapshot`
-still enables the default snippet guard. Set `context = "auto"` in the definition, not alongside
+still enables the default snippet guard. Set `context = "explicit"` or `context = "auto"`
+in the definition, not alongside
 `config`/`snippet` in the invocation. Unknown keys, missing required fields, and missing snippet names are errors.
 Do not mix `config`/`snippet` with inline options.
 
@@ -137,7 +152,12 @@ that same configuration directory, not the package root. See
 The example's source/config/snapshot paths are relative to its package, not the
 workspace root. Users still write their own tests.
 
-## Automatic context (opt-in)
+<a id="automatic-context-opt-in"></a>
+
+## Automatic context (default)
+
+Automatic context is now the **default**. Omitting `context` is equivalent to `context = "auto"`, including placement checks,
+context reports/guards, and fail-closed errors.
 
 Requires Rust 1.88+ and a normal Cargo build. Editor expansion additionally needs the
 [compatible rust-analyzer/server setup](editor-support.md); its legacy macro protocol
@@ -155,7 +175,6 @@ The config path is relative to that package's manifest. Its
 
 ```toml
 [snippets.invoice]
-context = "auto"
 fn_sig = "fn extracted_invoice(total: u64, quantity: u32) -> Invoice"
 module = "../src/lib.rs"
 start = 8

@@ -58,6 +58,7 @@ mod tests {
     .unwrap();
     let config = r#"
 [snippets.add]
+context = "explicit"
 fn_sig = "fn add(a: i32) -> i32"
 module = "external.rs"
 start = 2

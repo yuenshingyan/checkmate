@@ -1,7 +1,7 @@
 # Reviewed automatic-context snapshots
 
-Context guards are optional and available only with `context = "auto"`; they have no
-default path. Snippet guards are enabled by default in both ordinary and automatic
+Context guards are optional and available in automatic mode (omitted `context` or
+`context = "auto"`); they have no default path. Snippet guards are enabled by default in both ordinary and automatic
 mode: omitted `snapshot` uses `snapshots/<generated-function-name>.rs` from parsed
 `fn_sig`. Explicit `snapshot = "path"` wins; `snapshot = false` disables it (`true`
 and empty strings are invalid). To use only a context guard, set `snapshot = false`.
@@ -33,8 +33,9 @@ Both options require automatic mode and its existing
 
 Either context option can be used alone, or together. Omission of both skips context
 baseline/report processing, including stable snapshot anchor requirements, but does
-not disable the default snippet guard. Omission of `context` preserves ordinary extraction; these options are rejected
-there, not silently ignored. Do not mix inline options with `config`/`snippet`.
+not disable the default snippet guard. Omission of `context` selects automatic discovery,
+so both options remain valid. Both are rejected with `context = "explicit"`, not silently
+ignored. Automatic failure never falls back to ordinary extraction. Do not mix inline options with `config`/`snippet`.
 
 For example, a configured definition can add:
 
@@ -129,7 +130,7 @@ names are used as metadata identities.
 - Anonymous scopes are not assigned fragile positional IDs. Same-named locals in different
   anonymous scopes under the same named owner can be ambiguous. A required ambiguous
   declaration or owner fails closed; unrelated ambiguous locals do not invalidate a model.
-  Use snippet-only guards/ordinary automatic mode for these cases rather than adding
+  Use automatic mode with snippet-only guards for these cases rather than adding
   markers or renaming the original source to satisfy a guessed identity.
 - Context snapshots currently require the canonical source to remain under its package
   root. Unsupported external/symlink layouts are not assigned absolute-path identities.

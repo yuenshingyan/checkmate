@@ -1,4 +1,5 @@
 [snippets.add]
+context = "explicit"
 fn_sig = "fn configured_add(a: i32, b: i32) -> i32"
 module = "snippet.rs"
 start = 4
@@ -7,6 +8,7 @@ output = "c"
 snapshot = "snapshots/add.rs"
 
 [snippets.tail]
+context = "explicit"
 fn_sig = "fn configured_tail(a: i32, b: i32) -> i32"
 module = "snippet.rs"
 start = 4

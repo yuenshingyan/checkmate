@@ -1,8 +1,17 @@
 # 003 — Index lexical scopes and bindings
 
-- **Status:** Planned
+- **Status:** Complete
 - **Dependencies:** 002
 - **Goal:** Resolve names according to their actual lexical scope, not text matching.
+
+## Result
+
+Implemented the test-gated `scope.rs` index with separate builder and pattern
+collector modules. Twenty-one tests cover namespaces, hoisted items, textual local
+visibility, nested scopes, patterns, let chains, capture boundaries, and explicit
+unsupported-context errors. IDs are deterministic within a source traversal, not
+persistent identities across edits. Imports, implementation bodies, and opaque
+binding-producing syntax remain explicit errors for later tasks to handle.
 
 ## Scope
 

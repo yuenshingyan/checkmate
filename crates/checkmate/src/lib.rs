@@ -10,6 +10,10 @@ mod generate;
 mod snapshot;
 mod source;
 
+// Automatic-context foundations are not enabled in the public macro until task 011.
+#[cfg(test)]
+mod scope;
+
 use std::path::Path;
 
 use arguments::Invocation;

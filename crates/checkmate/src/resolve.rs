@@ -8,6 +8,7 @@ pub(crate) mod catalog;
 mod collect;
 pub(crate) mod declarations;
 pub(crate) mod graph;
+pub(crate) mod promote;
 
 use std::collections::BTreeSet;
 
@@ -61,6 +62,9 @@ pub(crate) struct Reference {
     pub usage: ReferenceUse,
     pub target: ReferenceTarget,
     pub site: ReferenceSite,
+    // Exact analysis-shell position for identity-aware rewriting, independent of
+    // source diagnostic locations and signature/output normalization.
+    pub generated_range: SourceRange,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -78,6 +82,7 @@ pub(crate) struct DeferredOperation {
 }
 
 pub(crate) struct References {
+    pub snippet_start: usize,
     pub occurrences: Vec<Reference>,
     pub required_inputs: BTreeSet<String>,
     pub deferred_operations: Vec<DeferredOperation>,
@@ -142,6 +147,7 @@ pub(crate) fn collect_references(
         snippet_end,
     )?;
     Ok(References {
+        snippet_start,
         occurrences: collected.occurrences,
         required_inputs: collected.required_inputs,
         deferred_operations: collected.deferred_operations,

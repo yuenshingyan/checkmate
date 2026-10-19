@@ -5,8 +5,9 @@
 ## Workspace
 
 The root `Cargo.toml` is a virtual workspace. `crates/checkmate` is the procedural
-macro package; `examples/basic` and `examples/struct-return` are unpublished consumer
-packages. One root `Cargo.lock` records the workspace's resolved dependencies.
+macro package; `examples/basic`, `examples/struct-return`, and `examples/local-types`
+are unpublished example packages. The last supplies ordinary source for an internal
+promotion walkthrough, not a public automatic-context integration. One root `Cargo.lock` records the workspace's resolved dependencies.
 
 The example keeps all of its own inputs together: `src/main.rs`, `src/tests.rs`,
 `checkmate.toml`, and `snapshots/add_if.rs`. Moving the example does not change its
@@ -29,6 +30,7 @@ All paths below are inside `crates/checkmate/src/`.
 | `resolve.rs`, `resolve/collect.rs` | Test-gated reference/input collection across snippet, supplied signature, and output |
 | `resolve/catalog.rs`, `resolve/declarations.rs` | Test-gated original-item identities, namespace-aware reusable paths/imports, local-type IDs, conservative access checks |
 | `resolve/graph.rs`, `resolve/graph/collect.rs` | Test-gated deterministic transitive dependencies, recursive type/alias validation, dependency-chain errors |
+| `resolve/promote.rs`, `resolve/promote/rewrite.rs` | Test-gated local-type promotion plans, unique names, identity-aware AST rewriting, and test-only emission |
 | `snapshot.rs` | Compare selected source against a reviewed baseline; report first mismatch |
 | `generate.rs` | Signature parsing, inclusive line selection, snapshot validation, body parsing, token emission |
 | `tests.rs` | Unit tests for syntax, configuration, ranges, diagnostics, and snapshots |
@@ -71,8 +73,12 @@ captured or inferred. Ordinary rustc type, ownership, and visibility checks stil
   original type identity, and item/field privacy failures without source modification.
 - `src/resolve/graph/tests.rs`: shared/transitive dependencies, stable ordering,
   recursive relationships, unsupported chains, and compiler-backed recursion checks.
-- `src/walkthroughs.rs`: seven repository-only unit tests that print and assert internal
-  analysis of the same `examples/struct-return` source/config. See the
+- `src/resolve/promote/tests.rs`: compiler-backed promotion, explicit nominal identity
+  changes, AST rewriting, visibility/collision checks, and rejection paths.
+- `src/resolve/graph/properties.rs`: bounded generated graph/source properties checked
+  against independent oracles; see [coverage and properties](coverage.md).
+- `src/walkthroughs.rs`: eight repository-only unit tests that print and assert internal
+  analysis of `examples/struct-return` and `examples/local-types` source/config. See the
   [walkthrough guide](../examples/struct-return/README.md).
 
 ## Planned work boundary
@@ -81,9 +87,9 @@ The [design contract](automatic-context.md) defines the opt-in syntax and safety
 boundary. The [automatic-context backlog](tasks/README.md) describes new source AST, scope,
 reference-resolution, and dependency-graph passes. Whole-file source selection and
 lexical scope/import indexing, source-root mapping, reference collection, and original
-declaration resolution and dependency graphs are implemented and tested, but remain
-test-gated until task 011 integrates the opt-in pipeline. Local-type promotion and
-implementation analysis are not implemented yet.
+declaration resolution, dependency graphs, and local-type promotion plans are
+implemented and tested, but remain test-gated until task 011 integrates the opt-in
+pipeline. Implementation analysis is not implemented yet.
 
 The lexical index distinguishes hoisted items from position-dependent locals and
 tracks type/value/macro namespaces separately. It models closure capture, item
@@ -141,7 +147,22 @@ wrapper layouts are not guessed. Type/where constraints are distinguished from l
 edges and alias-RHS references. Bounds, fields, aliases, and simple original-constant
 expressions are analyzed without evaluating helpers or initializers. Graph failures
 include a root-to-dependency chain and discard the entire plan. Promotion and
-implementation policy must still approve a graph before task 011 can emit anything.
+implementation policy must still approve a graph before task 011 can emit anything
+through the public macro.
+
+Promotion plans generate deterministic extraction-specific names and rewrite resolved
+paths in declarations, the signature, snippet, and output. Reference collection retains
+both original diagnostic locations and exact analysis-shell positions for rewriting.
+Arguments are rewritten before their enclosing path; shorthand fields/patterns retain
+labels. Promoted definitions selected in the snippet are removed only from the generated
+copy. Copies preserve inherited/public visibility; restricted visibility, nonliteral doc
+attributes, semantic attributes, and selected/output imports fail conservatively.
+
+All planned items are test-gated. Copied structs/enums are explicitly recorded as new
+nominal identities; aliases follow their targets, and reusable originals are never copied.
+Known caller/analysis identifiers are checked for generated-name collisions. Invocation
+placement and unknown caller context still need task 011 verification. None of this
+changes ordinary `extract_fn!` behavior or accepts `context = "auto"` publicly.
 
 The current source/argument/generation separation provides places to add them without
 turning the public proc-macro entry point into the implementation itself.

@@ -1,4 +1,4 @@
 [workspace]
-members = ["crates/checkmate", "examples/basic", "examples/struct-return"]
-default-members = ["crates/checkmate", "examples/basic", "examples/struct-return"]
+members = ["crates/checkmate", "examples/basic", "examples/struct-return", "examples/local-types"]
+default-members = ["crates/checkmate", "examples/basic", "examples/struct-return", "examples/local-types"]
 resolver = "3"

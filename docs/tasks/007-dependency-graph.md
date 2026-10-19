@@ -62,6 +62,6 @@ A seventh executable walkthrough deduplicates the public struct example's depend
 - Captured lifetimes, non-documentation attributes, inferred/opaque/impl-trait types,
   and unresolved trait/associated operations fail. Self-contained higher-ranked
   function/trait binders and explicit `'static` references are tracked.
-- Graph success is not permission to emit copied declarations. Promotion, collision
-  handling, implementation analysis, and invocation verification remain tasks 008–011.
+- Graph success alone is not permission to emit copied declarations. Promotion and
+  collision handling belong to task 008; implementation/invocation checks belong to 009–011.
   IDs are deterministic for an unchanged source/index, not persisted cross-edit IDs.

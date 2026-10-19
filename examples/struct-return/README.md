@@ -221,6 +221,9 @@ layout cycles such as `struct A { next: A }` fail instead. Unsupported dependenc
 include their chain, and no partial graph is returned. This is analysis only: no
 function-local type is copied or exposed by the public macro yet.
 
+For function-local types that cannot be imported, see the separate
+[internal promotion walkthrough](../local-types/README.md).
+
 ## What is not demonstrated yet
 
 Automatic imports in `extract_fn!`, local-type promotion, and `context = "auto"`

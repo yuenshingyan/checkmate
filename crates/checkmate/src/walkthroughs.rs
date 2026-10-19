@@ -24,7 +24,13 @@ struct Example {
 
 impl Example {
     fn load(snippet: &str) -> Self {
-        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/struct-return");
+        Self::load_from("struct-return", snippet)
+    }
+
+    fn load_from(example: &str, snippet: &str) -> Self {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../examples")
+            .join(example);
         let snippet = LitStr::new(snippet, Span::call_site());
         let invocation: Invocation = syn::parse2(quote! {
             config = "checkmate.toml", snippet = #snippet,
@@ -57,6 +63,63 @@ impl Example {
         )
         .unwrap()
     }
+}
+
+#[test]
+fn local_type_promotion_discloses_new_identity_and_preserves_source() {
+    use crate::resolve::declarations::{Resolver, ReuseSite};
+    use crate::resolve::promote::PromotionPlan;
+    use std::collections::BTreeSet;
+    let example = Example::load_from("local-types", "build_user");
+    let origin = SourceOrigin::discover(&example.root, &example.source.path).unwrap();
+    let resolver = Resolver::new(
+        &example.source,
+        &example.index,
+        &origin,
+        ReuseSite::PackageIntegrationTest,
+    )
+    .unwrap();
+    let selection = example
+        .source
+        .select(
+            example.args.start.base10_parse().unwrap(),
+            example.args.end.base10_parse().unwrap(),
+        )
+        .unwrap();
+    let selected = example
+        .source
+        .text
+        .lines()
+        .skip(selection.range.start.line - 1)
+        .take(selection.range.end.line - selection.range.start.line)
+        .collect::<Vec<_>>();
+    let snapshot = fs::read_to_string(
+        example
+            .root
+            .join(example.args.snapshot.as_ref().unwrap().value()),
+    )
+    .unwrap();
+    assert_eq!(
+        crate::snapshot::snapshot_difference(&snapshot, &selected, selection.range.start.line),
+        None
+    );
+    let plan = PromotionPlan::build(
+        &resolver,
+        &example.configured_analysis(),
+        &selection,
+        &BTreeSet::new(),
+    )
+    .unwrap();
+    assert_eq!(plan.copied_nominal_types.len(), 1);
+    assert_eq!(
+        fs::read_to_string(&origin.source).unwrap(),
+        example.source.text
+    );
+    println!("Copied local User: NEW nominal identity; aliases follow their rewritten targets.");
+    println!(
+        "Test-gated generated plan (not yet a public extract_fn! mode):\n{}",
+        plan.tokens()
+    );
 }
 
 #[test]

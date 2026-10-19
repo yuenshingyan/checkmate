@@ -1,11 +1,16 @@
 //! Explicit imports and source-relative path provenance, not visibility or type proof.
 
-use crate::diagnostics::{Error, Kind, Result};
-use proc_macro2::{LineColumn, Span};
+#[cfg(test)]
+use crate::diagnostics::Kind;
+use crate::diagnostics::{Error, Result};
+#[cfg(test)]
+use proc_macro2::LineColumn;
+use proc_macro2::Span;
 use quote::ToTokens;
 use syn::spanned::Spanned;
 
 use super::*;
+#[cfg(test)]
 use crate::source::origin::SourceOrigin;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -34,6 +39,7 @@ impl Import {
     }
 }
 
+#[cfg(test)]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum PathOrigin {
     // Source crate, not necessarily the crate containing the macro invocation.
@@ -183,6 +189,7 @@ impl ScopeIndex {
         Ok(path)
     }
 
+    #[cfg(test)]
     fn verify_origin(&self, origin: &SourceOrigin) -> Result<()> {
         let source = origin
             .package_root
@@ -205,11 +212,13 @@ impl ScopeIndex {
         Ok(())
     }
 
+    #[cfg(test)]
     pub fn import_origin(&self, id: ImportId, origin: &SourceOrigin) -> Result<PathOrigin> {
         self.verify_origin(origin)?;
         self.expand_import(id, origin, &mut Vec::new())
     }
 
+    #[cfg(test)]
     pub fn path_origin(
         &self,
         scope: ScopeId,
@@ -246,6 +255,7 @@ impl ScopeIndex {
         )
     }
 
+    #[cfg(test)]
     fn expand_import(
         &self,
         id: ImportId,
@@ -287,6 +297,7 @@ impl ScopeIndex {
         })
     }
 
+    #[cfg(test)]
     fn normalize(
         &self,
         scope: ScopeId,

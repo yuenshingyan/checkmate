@@ -2,11 +2,13 @@
 
 [All examples](../README.md) · [Usage guide](../../docs/usage.md)
 
-This package supplies one ordinary Rust source file for two distinct demonstrations:
+This package supplies one ordinary Rust source file for three distinct demonstrations:
 
-1. **Public API:** extract and test snippets today, with explicit imports.
-2. **Internal foundations:** inspect what tasks 004–007 can discover, without claiming
-   the public macro automatically discovers context yet.
+1. **Ordinary public API:** extract and test snippets with explicit imports.
+2. **Public automatic mode:** [`tests/automatic.rs`](tests/automatic.rs) adds
+   `context = "auto"` without importing `Account`; the result retains the original
+   library type. The source and existing configuration/snapshots/tests are unchanged.
+3. **Internal walkthroughs:** inspect the individual analysis passes independently.
 
 ## Source remains ordinary Rust
 
@@ -173,7 +175,7 @@ Deferred: method `len` requires method/trait resolution
 ```
 
 This does not contradict the passing ordinary extraction test. Ordinary extraction
-lets rustc check the supplied function directly; future automatic context discovery
+lets rustc check the supplied function directly; later automatic-analysis stages
 must determine which additional implementations/dependencies to bring along. The
 collector deliberately does not pretend to have solved method or trait resolution.
 
@@ -188,10 +190,9 @@ use ::checkmate_struct_example::models::User as Account;
 
 The resolver is explicitly told this is a same-package integration-test context.
 It uses the verified library name, does not copy `User`, and leaves final field/type
-privacy checks to Rust. Separate compiler-backed unit tests prove the imported type
-is the original type and inaccessible items/fields still fail. Task 011 must establish
-actual invocation placement before enabling this in `extract_fn!`; the public example
-continues to import `Account` explicitly.
+privacy checks to Rust. Separate compiler-backed unit tests verify original identity
+and inaccessible item/field failures. Task 011 now verifies actual invocation placement
+for the public automatic test; the original explicit-mode test remains unchanged.
 
 ### 7. Deterministic dependency graphs
 
@@ -218,16 +219,16 @@ cargo test -p checkmate --lib resolve::graph::tests::recursive_types_terminate -
 It discovers `Node`, `Option`, and `Box` once each and retains the indirect recursive
 edge back to `Node`. Alias-expansion cycles such as `type A = Box<A>;` and direct
 layout cycles such as `struct A { next: A }` fail instead. Unsupported dependencies
-include their chain, and no partial graph is returned. This is analysis only: no
-function-local type is copied or exposed by the public macro yet.
+include their chain, and no partial graph is returned. This individual walkthrough
+stops at graph analysis; promotion and the public pipeline are separate stages.
 
 For function-local types that cannot be imported, see the separate
-[internal promotion walkthrough](../local-types/README.md).
+[promotion example and internal walkthrough](../local-types/README.md).
 
-## What is not demonstrated yet
+## Remaining work
 
-Automatic imports in `extract_fn!`, local-type promotion, and `context = "auto"`
-are not public features yet. Dependency discovery is internal and deliberately limited
-to the supported syntax; it is not whole-program compiler inference. This walkthrough does not complete
-[task 014](../../docs/tasks/014-documentation.md), which documents the eventual integrated
-feature. The [backlog](../../docs/tasks/README.md) tracks the remaining implementation.
+Public automatic mode is deliberately limited to the supported syntax and verified
+placement; it is not whole-program compiler inference. Context snapshots remain task 012.
+These examples and individual-pass walkthroughs do not complete
+[task 014](../../docs/tasks/014-documentation.md)'s integrated documentation work.
+The [backlog](../../docs/tasks/README.md) tracks remaining implementation.

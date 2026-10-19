@@ -10,12 +10,9 @@ mod generate;
 mod snapshot;
 mod source;
 
-// Automatic-context foundations are not enabled in the public macro until task 011.
-#[cfg(test)]
+mod automatic;
 mod diagnostics;
-#[cfg(test)]
 mod resolve;
-#[cfg(test)]
 mod scope;
 
 use std::path::Path;
@@ -25,6 +22,12 @@ use proc_macro::TokenStream;
 use syn::parse_macro_input;
 
 /// Extract a source range into a function available only under `cfg(test)`.
+///
+/// Omission of `context` keeps ordinary extraction. `context = "auto"` discovers
+/// supported context only for verified library roots and literal fully qualified
+/// invocations at package integration-test roots. Copied function-local structs
+/// and enums have new nominal identity; original declarations retain theirs.
+/// Source, configuration, and snapshots are never modified by compilation.
 ///
 /// ```ignore
 /// use checkmate::extract_fn;
@@ -43,10 +46,17 @@ use syn::parse_macro_input;
 /// ```
 #[proc_macro]
 pub fn extract_fn(input: TokenStream) -> TokenStream {
+    // proc_macro2's file-parser backend switch is global to this macro library.
+    // Keep even the ordinary path outside another expansion's analysis window.
+    static EXPANSION: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _expansion = EXPANSION
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let caller = automatic::Caller::capture(input.to_string());
     let invocation = parse_macro_input!(input as Invocation);
     let result = std::env::var_os("CARGO_MANIFEST_DIR")
         .ok_or_else(|| syn::Error::new(invocation.span(), "CARGO_MANIFEST_DIR is not set"))
-        .and_then(|root| generate::expand(invocation, Path::new(&root)));
+        .and_then(|root| generate::expand_with_caller(invocation, Path::new(&root), Some(caller)));
     result.unwrap_or_else(syn::Error::into_compile_error).into()
 }
 

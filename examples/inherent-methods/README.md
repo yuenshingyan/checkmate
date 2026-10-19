@@ -1,8 +1,9 @@
-# Inherent implementations — internal walkthrough
+# Inherent implementations
 
-**This is not a public automatic-extraction API.** Task 009 checks and emits internal
-plans; task 011 must still integrate opt-in automatic context and verify invocation
-placement. The example crate itself has no Checkmate dependency.
+Task 011 adds public automatic extraction in [`tests/automatic.rs`](tests/automatic.rs)
+using [`automatic.toml`](automatic.toml) and a Checkmate dev-dependency. Task 009's internal
+walkthrough remains available; its original configuration and historical comments are
+unchanged. No production dependency or annotation is added to the original source.
 
 [`src/lib.rs`](src/lib.rs) is ordinary, unannotated Rust. Its function-local `Counter`
 has a constructor, a mutable borrowed helper, and an owned `finish` method. The original
@@ -31,8 +32,8 @@ cargo test -p checkmate-inherent-example
 The walkthrough prints the test-gated plan and verifies the reviewed
 [snapshot](snapshots/counter.rs) and unchanged original source. A compiler-backed test
 loads this same source, compiles its generated function, and compares its results to
-the original for inputs 0, 7, and 254. The example package test tests only the original
-function; it does not call an unpublished macro mode.
+the original for inputs 0, 7, and 254. The new public automatic integration test also
+compares those bounded inputs against the original; this is not a proof for all inputs.
 
 ## Deliberate limits
 

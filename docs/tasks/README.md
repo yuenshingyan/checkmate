@@ -1,9 +1,9 @@
 # Automatic-context resolution backlog
 
-This backlog tracks work toward automatic context discovery; completion of a
-foundation task does not enable the public feature. The current macro still requires
-external types/imports to be available at its invocation site. See the
-[design contract](../automatic-context.md) for the agreed implementation boundary.
+Task 011 exposes the tested foundations through opt-in `context = "auto"` for verified
+library-root and package integration-test-root extractions. Ordinary extraction still
+requires external context at its invocation site. See the
+[design contract](../automatic-context.md) and [public placement limits](../usage.md#automatic-context-opt-in).
 
 ## Constraints
 
@@ -30,7 +30,7 @@ external types/imports to be available at its invocation site. See the
 | [x] | [008 — Promote self-contained local types](008-local-types.md) | 007 |
 | [x] | [009 — Handle a conservative implementation subset](009-implementations.md) | 008 |
 | [x] | [010 — Report unsupported context precisely](010-diagnostics.md) | 006, 008, 009 |
-| [ ] | [011 — Integrate an opt-in automatic-context pipeline](011-pipeline.md) | 007–010 |
+| [x] | [011 — Integrate an opt-in automatic-context pipeline](011-pipeline.md) | 007–010 |
 | [ ] | [012 — Protect discovered context with snapshots](012-context-snapshots.md) | 011 |
 | [ ] | [013 — Add end-to-end regression coverage](013-regression-tests.md) | 011, 012 |
 | [ ] | [014 — Document the feature and add examples](014-documentation.md) | 013 |
@@ -57,10 +57,12 @@ Review/merge in this order (or compare each branch against its listed base):
 | 008 | `task/008-local-types` | `task/007-dependency-graph` |
 | 009 | `task/009-implementations` | `task/008-local-types` |
 | 010 | `task/010-diagnostics` | `task/009-implementations` |
+| 011 | `task/011-pipeline` | `task/010-diagnostics` |
 
-Tasks 002–010 are tested internal foundations, deliberately test-gated until
-011 adds the public opt-in pipeline. The macro still does not accept `context = "auto"`.
-Next: task 011 (verified opt-in pipeline integration), then 012 (context snapshots).
+Tasks 002–010 were tested internal foundations; task 011 enables their production
+analysis path for the verified public opt-in. Historical task-specific descriptions
+record their boundaries at implementation time, not the current public feature status.
+Next: task 012 (context snapshots), then 013 (further integration regressions).
 The [current examples](../../examples/README.md) illustrate these foundations and the
 existing public API; they do not mark task 014's integrated-feature documentation complete.
 

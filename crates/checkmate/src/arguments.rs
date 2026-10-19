@@ -4,7 +4,24 @@ use proc_macro2::Span;
 use syn::parse::{Parse, ParseStream};
 use syn::{Expr, Ident, LitInt, LitStr, Token};
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) enum Context {
+    #[default]
+    Explicit,
+    Auto,
+}
+
+impl Context {
+    pub(crate) fn parse(value: &str) -> Result<Self, &'static str> {
+        match value {
+            "auto" => Ok(Self::Auto),
+            _ => Err("invalid context; expected \"auto\""),
+        }
+    }
+}
+
 pub(crate) struct Args {
+    pub context: Context,
     pub fn_sig: LitStr,
     pub module: LitStr,
     pub start: LitInt,
@@ -35,6 +52,7 @@ impl Parse for Invocation {
         let mut end = None;
         let mut output = None;
         let mut snapshot = None;
+        let mut context = None;
         let mut config = None;
         let mut snippet = None;
 
@@ -48,12 +66,18 @@ impl Parse for Invocation {
                 "end" => set_once(&mut end, input.parse()?, &key)?,
                 "output" => set_once(&mut output, input.parse()?, &key)?,
                 "snapshot" => set_once(&mut snapshot, input.parse()?, &key)?,
+                "context" => {
+                    let value: LitStr = input.parse()?;
+                    let mode = Context::parse(&value.value())
+                        .map_err(|message| syn::Error::new(value.span(), message))?;
+                    set_once(&mut context, mode, &key)?;
+                }
                 "config" => set_once(&mut config, input.parse()?, &key)?,
                 "snippet" => set_once(&mut snippet, input.parse()?, &key)?,
                 _ => {
                     return Err(syn::Error::new(
                         key.span(),
-                        "unknown option; expected fn_sig, module, start, end, output, snapshot, config, or snippet",
+                        "unknown option; expected fn_sig, module, start, end, output, snapshot, context, config, or snippet",
                     ));
                 }
             }
@@ -69,6 +93,7 @@ impl Parse for Invocation {
                 || end.is_some()
                 || output.is_some()
                 || snapshot.is_some()
+                || context.is_some()
             {
                 return Err(input.error("config/snippet cannot be mixed with inline options"));
             }
@@ -84,9 +109,14 @@ impl Parse for Invocation {
             end: end.ok_or_else(|| input.error("missing end"))?,
             output,
             snapshot,
+            context: context.unwrap_or_default(),
         })))
     }
 }
+
+#[cfg(test)]
+#[path = "options_tests.rs"]
+mod options_tests;
 
 fn set_once<T>(slot: &mut Option<T>, value: T, key: &Ident) -> syn::Result<()> {
     if slot.is_some() {

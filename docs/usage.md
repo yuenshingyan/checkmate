@@ -7,7 +7,7 @@ attributes, or wrappers need to be added to the original snippet.
 
 For runnable demonstrations, see the [example index](../examples/README.md) and
 [struct-return walkthrough](../examples/struct-return/README.md). The latter separately
-illustrates the public API and the internal, not-yet-enabled automatic-context analysis.
+distinguishes ordinary extraction, public automatic mode, and internal analysis walkthroughs.
 
 The `crates/checkmate` workspace member provides the `extract_fn!` procedural macro.
 The `checkmate-example` package in `examples/basic` demonstrates its use. Add
@@ -52,6 +52,8 @@ under a package's `tests/` directory are already test-only.
   Omit it if the snippet already ends with its return expression or returns `()`.
 - `snapshot` (optional): path to a reviewed copy of the selected source lines,
   relative to the invoking package's `Cargo.toml`. A mismatch fails compilation.
+- `context` (optional): only `"auto"` is accepted. Omission keeps ordinary extraction.
+  See the placement and supported-context restrictions below.
 
 The example generates the equivalent of:
 
@@ -68,7 +70,7 @@ fn add_if(a: f32, b: f32) -> f32 {
 ```
 
 The generated function exists in the scope where the macro is invoked. Bring any
-needed types, functions, or imports into that scope; the macro does not capture the
+needed types, functions, or imports into that scope in ordinary mode; the macro does not capture the
 original surrounding locals or infer types. It tests an extracted copy, not the
 execution of the original containing function. Context-sensitive macros such as
 `file!()` and `line!()` refer to the expansion context.
@@ -97,8 +99,9 @@ extract_fn!(config = "checkmate.toml", snippet = "add_if");
 ```
 
 Each `[snippets.NAME]` defines one extraction; a file can contain multiple definitions.
-`output` is a Rust expression **inside a TOML string**. `output` and `snapshot` are
-optional. Unknown keys, missing required fields, and missing snippet names are errors.
+`output` is a Rust expression **inside a TOML string**. `output`, `snapshot`, and
+`context` are optional. Set `context = "auto"` in the definition, not alongside
+`config`/`snippet` in the invocation. Unknown keys, missing required fields, and missing snippet names are errors.
 Do not mix `config`/`snippet` with inline options.
 
 The `config` path is relative to the invoking package's `Cargo.toml`. Paths **inside
@@ -108,6 +111,69 @@ directory, so definitions can live in a subdirectory. See
 [`examples/basic/src/tests.rs`](../examples/basic/src/tests.rs) for a working example.
 The example's source/config/snapshot paths are relative to its package, not the
 workspace root. Users still write their own tests.
+
+## Automatic context (opt-in)
+
+Requires Rust 1.88+ and a normal Cargo build. In a **crate-root integration-test file**
+(e.g. `tests/automatic.rs`), invoke the macro with its literal, fully qualified path:
+
+```rust,ignore
+checkmate::extract_fn! {
+    fn_sig = "fn automatic_user(name: String, active: bool) -> Account",
+    module = "src/lib.rs",
+    start = 17,
+    end = 20,
+    output = user,
+    snapshot = "snapshots/user.rs",
+    context = "auto",
+}
+```
+
+This is the runnable [struct example](../examples/struct-return/tests/automatic.rs).
+It returns the original library `models::User` without importing `Account` manually.
+For TOML, add `context = "auto"` to a snippet definition and use
+`checkmate::extract_fn!(config = "automatic.toml", snippet = "build_user");` at the
+same verified location. See [local types](../examples/local-types/README.md) and
+[inherent methods](../examples/inherent-methods/README.md).
+
+The initial public boundary is intentionally narrower than the internal resolver:
+
+- The source must be the invoking package's **verified library root**, conventional or
+  explicitly declared in Cargo. Arbitrary module/fixture files and binary roots fail.
+- The caller must be the unique Cargo integration-test root, matched using compiler
+  file/position/package/crate metadata and the manifest/target layout. Conventional
+  tests and explicit `[[test]]` paths are supported. Same-target unit-test modules,
+  nested modules, `include!`/macro-generated invocations, missing metadata, and ambiguous
+  target identities fail. Names beginning `build_script_` are reserved/rejected because
+  Cargo custom-build targets do not carry binary-target metadata. Checkmate does not treat a user-supplied placement assertion
+  or a matching filename alone as proof.
+- Use a fully qualified Checkmate dependency alias, declared directly in the package's
+  dependencies/dev-dependencies. Bare imported macro names, workspace-inherited or
+  target-specific-only macro aliases are not currently proven.
+- Caller-root globs, `extern crate`, opaque root macros, namespace collisions, and
+  unrecognized caller attributes are rejected rather than assuming generated names
+  are safe. Nested module contents are not read for parent bindings. Rust remains
+  authoritative for final availability, member privacy, and typing.
+- You still supply the signature, typed inputs, selection, output, and tests. Signature
+  type names are interpreted in the selected source context. Earlier initializers are
+  **never copied or executed**. No type inference or general trait resolution is added.
+- Accessible original declarations keep their identity/privacy. Supported function-local
+  structs/enums are copied with **new nominal identity**; transparent aliases follow their
+  rewritten targets. The generated function documents this change. Do not depend on
+  generated helper names or use them to claim interoperability with original locals.
+- All required methods of copied types are checked, including unused methods. See the
+  [supported subset](automatic-context.md) and [method limits](tasks/009-implementations.md).
+  Unsupported context always errors; there is no fallback to ordinary extraction.
+
+All emitted functions, types, impls, imports, and dependency markers are test-only.
+Automatic reports use [bounded structured diagnostics](diagnostics.md), anchored at
+an actual invocation span. Compiler type/borrow/privacy errors are not remapped.
+Source, caller, Cargo manifest, configuration, and optional snapshot contents read by
+analysis are tracked through dependency markers. No input file is modified.
+
+**Snapshot limit:** existing snapshots guard selected lines only, not discovered
+context, mappings, signature, or output. Context changes trigger analysis/recompilation
+but are not a reviewed context baseline until [task 012](tasks/012-context-snapshots.md).
 
 ## Detecting line drift with snapshots
 

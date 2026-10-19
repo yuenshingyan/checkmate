@@ -1,0 +1,9 @@
+# Public automatic mode; original walkthrough inputs remain unchanged.
+[snippets.finish_counter]
+fn_sig = "fn finish_counter(n: u8) -> u8"
+module = "src/lib.rs"
+start = 17
+end = 17
+output = "counter.finish()"
+snapshot = "snapshots/counter.rs"
+context = "auto"

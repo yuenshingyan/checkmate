@@ -36,10 +36,16 @@ dependencies = [
 [[package]]
 name = "checkmate-inherent-example"
 version = "0.1.0"
+dependencies = [
+ "checkmate",
+]
 
 [[package]]
 name = "checkmate-local-example"
 version = "0.1.0"
+dependencies = [
+ "checkmate",
+]
 
 [[package]]
 name = "checkmate-struct-example"

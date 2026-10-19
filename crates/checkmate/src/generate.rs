@@ -12,8 +12,8 @@ use crate::snapshot::snapshot_difference;
 use crate::source::{path_literal, preview, read_text};
 
 pub(crate) struct FunctionTemplate {
-    visibility: Visibility,
-    signature: Signature,
+    pub(crate) visibility: Visibility,
+    pub(crate) signature: Signature,
 }
 
 impl Parse for FunctionTemplate {
@@ -35,8 +35,20 @@ impl Parse for FunctionTemplate {
     }
 }
 
+#[cfg(test)]
 pub(crate) fn expand(invocation: Invocation, root: &Path) -> syn::Result<TokenStream> {
+    expand_with_caller(invocation, root, None)
+}
+
+pub(crate) fn expand_with_caller(
+    invocation: Invocation,
+    root: &Path,
+    caller: Option<crate::automatic::Caller>,
+) -> syn::Result<TokenStream> {
     let resolved = invocation.resolve(root)?;
+    if resolved.args.context == crate::arguments::Context::Auto {
+        return crate::automatic::expand(resolved, root, caller);
+    }
     let span = resolved.args.module.span();
     let result = expand_snippet(resolved.args, &resolved.root).and_then(|items| {
         if let Some(config) = resolved.config {

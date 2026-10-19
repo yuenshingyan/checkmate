@@ -64,6 +64,8 @@ pub(crate) struct Selection<'a> {
     pub block: &'a syn::Block,
     pub statements: &'a [syn::Stmt],
     pub range: SourceRange,
+    // Retained analysis metadata for inspection and later context snapshots.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub enclosing: Vec<EnclosingScope>,
 }
 

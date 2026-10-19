@@ -1,5 +1,5 @@
-//! Test-gated local-type promotion plans. No original source or baseline is written.
-//! Invocation placement and public integration remain task 011 responsibilities.
+//! Local-type promotion plans. No original source or baseline is written.
+//! The automatic pipeline verifies placement before requesting a public plan.
 
 use crate::diagnostics::{Error, Result};
 mod rewrite;
@@ -25,6 +25,8 @@ use crate::source::ast::{Selection, SourceRange};
 
 pub(crate) struct PromotionPlan {
     pub items: Vec<syn::Item>,
+    // Retained for inspection and the context-snapshot task.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub names: BTreeMap<NodeId, syn::Ident>,
     // Explicit disclosure, not a claim of interoperability with original locals.
     // Transparent aliases follow their targets; only structs/enums are nominal.

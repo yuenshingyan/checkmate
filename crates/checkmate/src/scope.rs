@@ -10,6 +10,8 @@ mod patterns;
 
 use imports::{Import, ImportId};
 
+use std::collections::BTreeSet;
+
 use proc_macro2::LineColumn;
 
 use crate::source::ast::{ParsedSource, SourceRange};
@@ -120,6 +122,15 @@ pub(crate) struct ScopeIndex {
 impl ScopeIndex {
     pub fn build(source: &ParsedSource) -> syn::Result<Self> {
         build::build(source)
+    }
+
+    // An incomplete analysis shell may omit original constant declarations.
+    // Preserve proven source pattern identities instead of inventing new binders.
+    pub fn build_with_pattern_constants(
+        source: &ParsedSource,
+        constants: &BTreeSet<(LineColumn, String)>,
+    ) -> syn::Result<Self> {
+        build::build_with_pattern_constants(source, constants)
     }
 
     pub fn scope_at(&self, at: LineColumn) -> Option<ScopeId> {

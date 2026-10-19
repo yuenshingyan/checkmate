@@ -40,6 +40,15 @@ impl Builder {
         match pattern {
             syn::Pat::Ident(node) => {
                 let ident = canonical(&node.ident.to_string()).to_owned();
+                if node.by_ref.is_none()
+                    && node.mutability.is_none()
+                    && node.subpat.is_none()
+                    && self
+                        .pattern_constants
+                        .contains(&(node.ident.span().start(), ident.clone()))
+                {
+                    return Ok(result);
+                }
                 let found = self.index.lookup(
                     self.current,
                     Namespace::Value,

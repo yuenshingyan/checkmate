@@ -5,7 +5,15 @@ use syn::visit::{self, Visit};
 use super::*;
 
 pub(super) fn build(source: &ParsedSource) -> syn::Result<ScopeIndex> {
+    build_with_pattern_constants(source, &BTreeSet::new())
+}
+
+pub(super) fn build_with_pattern_constants(
+    source: &ParsedSource,
+    constants: &BTreeSet<(LineColumn, String)>,
+) -> syn::Result<ScopeIndex> {
     let mut builder = Builder {
+        pattern_constants: constants.clone(),
         index: ScopeIndex {
             source_path: source.path.clone(),
             imports: Vec::new(),
@@ -45,6 +53,7 @@ pub(super) fn build(source: &ParsedSource) -> syn::Result<ScopeIndex> {
 }
 
 pub(super) struct Builder {
+    pub pattern_constants: BTreeSet<(LineColumn, String)>,
     pub index: ScopeIndex,
     pub current: ScopeId,
     pub error: Option<syn::Error>,

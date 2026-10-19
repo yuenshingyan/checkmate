@@ -21,7 +21,7 @@ external types/imports to be available at its invocation site. See the
 | Done | Task | Dependencies |
 | --- | --- | --- |
 | [x] | [001 — Define the supported subset and safety contract](001-safety-contract.md) | None |
-| [ ] | [002 — Parse source files and locate selected syntax](002-source-selection.md) | 001 |
+| [x] | [002 — Parse source files and locate selected syntax](002-source-selection.md) | 001 |
 | [ ] | [003 — Index lexical scopes and bindings](003-scope-index.md) | 002 |
 | [ ] | [004 — Index module paths and explicit imports](004-import-index.md) | 003 |
 | [ ] | [005 — Collect references and required inputs](005-reference-collection.md) | 003 |

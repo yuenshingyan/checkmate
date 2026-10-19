@@ -1,5 +1,10 @@
 //! Source-file IO and bounded diagnostics. No source is modified here.
 
+// The automatic-context foundation stays test-only until task 011 wires the
+// opt-in pipeline. Ordinary extraction must still accept statement-only files.
+#[cfg(test)]
+pub(crate) mod ast;
+
 use std::path::Path;
 
 use proc_macro2::Span;

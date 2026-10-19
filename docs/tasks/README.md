@@ -22,7 +22,7 @@ external types/imports to be available at its invocation site. See the
 | --- | --- | --- |
 | [x] | [001 — Define the supported subset and safety contract](001-safety-contract.md) | None |
 | [x] | [002 — Parse source files and locate selected syntax](002-source-selection.md) | 001 |
-| [ ] | [003 — Index lexical scopes and bindings](003-scope-index.md) | 002 |
+| [x] | [003 — Index lexical scopes and bindings](003-scope-index.md) | 002 |
 | [ ] | [004 — Index module paths and explicit imports](004-import-index.md) | 003 |
 | [ ] | [005 — Collect references and required inputs](005-reference-collection.md) | 003 |
 | [ ] | [006 — Resolve reusable original declarations](006-original-declarations.md) | 004, 005 |
@@ -38,6 +38,21 @@ external types/imports to be available at its invocation site. See the
 Each task includes acceptance tests. Update its status and this checklist only when
 those criteria are met. New implementation modules such as `scope.rs` and `resolve.rs`
 are proposed, not empty placeholders to create in advance.
+
+## First implementation batch: stacked branches
+
+Each branch contains one task commit on top of its dependencies; `master` is unchanged.
+Review/merge in this order (or compare each branch against its listed base):
+
+| Task | Branch | Base |
+| --- | --- | --- |
+| 001 | `task/001-safety-contract` | `master` |
+| 002 | `task/002-source-selection` | `task/001-safety-contract` |
+| 003 | `task/003-scope-index` | `task/002-source-selection` |
+
+Tasks 002 and 003 are tested internal foundations, deliberately test-gated until
+011 adds the public opt-in pipeline. The macro still does not accept `context = "auto"`.
+Next: task 004 (imports) and task 005 (reference collection).
 
 ## Out of scope for this milestone
 

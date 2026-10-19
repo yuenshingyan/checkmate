@@ -78,7 +78,9 @@ checks, not a filesystem sandbox or protection against malicious tests.
 
 Native-rustc test executables use the platform executable suffix. Dependency-marker tests
 compare parsed string-literal paths, not Rust-escaped token text (Windows backslashes
-otherwise cause a false failure). The non-test-emission
+otherwise cause a false failure). Snapshot-path assertions join the config base and
+option separately, retaining the full resolved-path check on Windows as well as Unix.
+The non-test-emission
 probe uses a compiled Rust wrapper on every platform instead of a Unix shell script;
 it removes only `--test` and checks that both the extracted function and context accessor
 are absent. Windows does not silently skip that contract.

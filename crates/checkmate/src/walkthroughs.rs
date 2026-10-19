@@ -1,6 +1,6 @@
 //! Executable documentation for the private analysis APIs. These tests read the
-//! same source/config used by the public struct-return example; they do not add a
-//! public API or pretend that `context = "auto"` is available.
+//! example source/config used by public or internal-only walkthroughs; they do not
+//! add a public API or pretend that `context = "auto"` is available.
 
 use std::{fs, path::PathBuf};
 
@@ -65,12 +65,11 @@ impl Example {
     }
 }
 
-#[test]
-fn local_type_promotion_discloses_new_identity_and_preserves_source() {
+fn promotion_walkthrough(package: &str, snippet: &str) -> crate::resolve::promote::PromotionPlan {
     use crate::resolve::declarations::{Resolver, ReuseSite};
     use crate::resolve::promote::PromotionPlan;
     use std::collections::BTreeSet;
-    let example = Example::load_from("local-types", "build_user");
+    let example = Example::load_from(package, snippet);
     let origin = SourceOrigin::discover(&example.root, &example.source.path).unwrap();
     let resolver = Resolver::new(
         &example.source,
@@ -115,10 +114,31 @@ fn local_type_promotion_discloses_new_identity_and_preserves_source() {
         fs::read_to_string(&origin.source).unwrap(),
         example.source.text
     );
-    println!("Copied local User: NEW nominal identity; aliases follow their rewritten targets.");
     println!(
         "Test-gated generated plan (not yet a public extract_fn! mode):\n{}",
         plan.tokens()
+    );
+    plan
+}
+
+#[test]
+fn local_type_promotion_discloses_new_identity_and_preserves_source() {
+    promotion_walkthrough("local-types", "build_user");
+    println!("Copied local User: NEW nominal identity; aliases follow their rewritten targets.");
+}
+
+#[test]
+fn inherent_implementations_keep_checked_behavior_on_the_new_type() {
+    let plan = promotion_walkthrough("inherent-methods", "finish_counter");
+    assert_eq!(
+        plan.items
+            .iter()
+            .filter(|item| matches!(item, syn::Item::Impl(_)))
+            .count(),
+        1
+    );
+    println!(
+        "Copied Counter has NEW nominal identity. Its constructor, mutable borrowed UFCS helper, and owned finish method are checked and retained."
     );
 }
 

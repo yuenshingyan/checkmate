@@ -8,6 +8,7 @@ pub(crate) mod catalog;
 mod collect;
 pub(crate) mod declarations;
 pub(crate) mod graph;
+pub(crate) mod implementations;
 pub(crate) mod promote;
 
 use std::collections::BTreeSet;

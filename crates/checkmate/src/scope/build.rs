@@ -171,6 +171,8 @@ impl Builder {
                 }
             }
             syn::Item::Use(item) => self.register_import(item),
+            // Implementations and methods do not introduce lexical names.
+            syn::Item::Impl(_) => {}
             _ => self.fail(item.span(), "unsupported item kind; imports, impls, traits, unions, extern items, and item-producing macros require further analysis"),
         }
     }
@@ -271,6 +273,25 @@ impl<'ast> Visit<'ast> for Builder {
                     visit::visit_item_fn(this, node);
                 });
             }
+            syn::Item::Impl(node) => {
+                let nominal = matches!(&*node.self_ty, syn::Type::Path(ty)
+                    if ty.qself.is_none() && !ty.path.segments.is_empty()
+                        && ty.path.segments.iter().all(|segment|
+                            matches!(segment.arguments, syn::PathArguments::None)));
+                if node.trait_.is_some()
+                    || node.unsafety.is_some()
+                    || node.defaultness.is_some()
+                    || !node.generics.params.is_empty()
+                    || node.generics.where_clause.is_some()
+                    || !nominal
+                {
+                    self.fail(node.span(), "unsupported impl; expected a non-generic inherent impl with a plain nominal self type path");
+                    return;
+                }
+                self.within(ScopeKind::Item, SourceRange::of(node), |this| {
+                    visit::visit_item_impl(this, node);
+                });
+            }
             syn::Item::Mod(node) => {
                 if let Some((_, items)) = &node.content {
                     self.within(ScopeKind::Module, SourceRange::of(node), |this| {
@@ -320,6 +341,51 @@ impl<'ast> Visit<'ast> for Builder {
             }
             _ => self.fail(item.span(), "unsupported item in lexical context"),
         }
+    }
+
+    fn visit_impl_item(&mut self, item: &'ast syn::ImplItem) {
+        let syn::ImplItem::Fn(node) = item else {
+            self.fail(
+                item.span(),
+                "unsupported associated item; only ordinary methods are indexed",
+            );
+            return;
+        };
+        let sig = &node.sig;
+        if node.defaultness.is_some()
+            || !sig.generics.params.is_empty()
+            || sig.generics.where_clause.is_some()
+            || sig.constness.is_some()
+            || sig.asyncness.is_some()
+            || sig.unsafety.is_some()
+            || sig.abi.is_some()
+            || sig.variadic.is_some()
+        {
+            self.fail(
+                node.span(),
+                "unsupported method signature; expected an ordinary non-generic fn",
+            );
+            return;
+        }
+        self.within(ScopeKind::Function, SourceRange::of(node), |this| {
+            let from = node.block.brace_token.span.open().end();
+            for argument in &sig.inputs {
+                match argument {
+                    syn::FnArg::Typed(arg) => {
+                        this.bind_pattern(&arg.pat, DeclarationKind::Parameter, from);
+                    }
+                    syn::FnArg::Receiver(arg) => this.declare(
+                        &syn::Ident::new("self", arg.self_token.span),
+                        DeclarationKind::Parameter,
+                        &[Namespace::Value],
+                        Some(from),
+                    ),
+                }
+            }
+            // Traverse attributes, receiver/parameter types, return type, and body
+            // using the same conservative rules as other lexical items.
+            visit::visit_impl_item_fn(this, node);
+        });
     }
 
     fn visit_local(&mut self, local: &'ast syn::Local) {

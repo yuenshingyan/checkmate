@@ -3,6 +3,7 @@
 
 use proc_macro2::{LineColumn, TokenStream};
 use quote::quote;
+use std::collections::BTreeMap;
 use syn::spanned::Spanned;
 
 use super::catalog::{Catalog, canonical, error};
@@ -103,6 +104,7 @@ pub(crate) struct Resolver<'a> {
     pub catalog: Catalog<'a>,
     origin: &'a SourceOrigin,
     site: ReuseSite,
+    pub implementations: BTreeMap<DeclarationId, Vec<&'a syn::ItemImpl>>,
 }
 
 impl<'a> Resolver<'a> {
@@ -141,11 +143,73 @@ impl<'a> Resolver<'a> {
                 "standard-library roots are shadowed by Cargo target/dependency names; prelude mapping is not proven",
             ));
         }
-        Ok(Self {
+        let mut resolver = Self {
             catalog: Catalog::new(source, index)?,
             origin,
-            site,
-        })
+            // Header discovery identifies owners; it is not a reuse/privacy decision.
+            site: ReuseSite::SameTarget,
+            implementations: BTreeMap::new(),
+        };
+        for implementation in &resolver.catalog.implementations {
+            let syn::Type::Path(ty) = &*implementation.self_ty else {
+                return Err(error("implementation requires a nominal self type"));
+            };
+            let at = ty.span().start();
+            let scope = index
+                .scope_at(at)
+                .ok_or_else(|| error("implementation has no lexical scope"))?;
+            let target = resolver.path(scope, &ty.path, ReferenceUse::Type, at)?;
+            let (Resolved::LocalType { declaration, .. } | Resolved::Original { declaration, .. }) =
+                target
+            else {
+                return Err(error(
+                    "implementation owner is not a same-file nominal declaration",
+                ));
+            };
+            let generics = match resolver.catalog.item(declaration)? {
+                syn::Item::Struct(item) => &item.generics,
+                syn::Item::Enum(item) => &item.generics,
+                _ => {
+                    return Err(error(
+                        "implementations through type aliases require additional owner analysis",
+                    ));
+                }
+            };
+            if !generics.params.is_empty() {
+                return Err(error("generic implementation owners are unsupported"));
+            }
+            resolver
+                .implementations
+                .entry(declaration)
+                .or_default()
+                .push(implementation);
+        }
+        for (owner, implementations) in &resolver.implementations {
+            let mut names = std::collections::BTreeSet::new();
+            for implementation in implementations {
+                for item in &implementation.items {
+                    if let syn::ImplItem::Fn(method) = item
+                        && !names.insert(canonical(&method.sig.ident.to_string()).to_owned())
+                    {
+                        return Err(error(
+                            "duplicate inherent method for one declaration identity",
+                        ));
+                    }
+                }
+            }
+            if let syn::Item::Enum(item) = resolver.catalog.item(*owner)?
+                && item
+                    .variants
+                    .iter()
+                    .any(|variant| names.contains(canonical(&variant.ident.to_string())))
+            {
+                return Err(error(
+                    "enum variant and inherent method share a name; associated target is ambiguous",
+                ));
+            }
+        }
+        resolver.site = site;
+        Ok(resolver)
     }
 
     pub fn references(
@@ -154,11 +218,11 @@ impl<'a> Resolver<'a> {
         selection: &Selection<'_>,
     ) -> syn::Result<Vec<Resolved>> {
         for pending in &references.deferred_operations {
-            if pending.kind != DeferredKind::QualifiedPath {
+            if pending.kind == DeferredKind::QualifiedTrait {
                 return Err(self.diagnostic(selection, &pending.site, &pending.description));
             }
         }
-        references.occurrences.iter().map(|reference| {
+        let resolved = references.occurrences.iter().map(|reference| {
             let resolve = || {
                 match reference.target {
                     ReferenceTarget::Input(_) | ReferenceTarget::GeneratedLocal(_) => return Ok(Resolved::Binding),
@@ -209,10 +273,77 @@ impl<'a> Resolver<'a> {
                 self.path(scope, &path, reference.usage, at)
             };
             resolve().map_err(|err| self.diagnostic(selection, &reference.site, &format!("`{}`: {err}", reference.path)))
-        }).collect()
+        }).collect::<syn::Result<Vec<_>>>()?;
+        super::implementations::check_root_methods(self, references, &resolved, selection)?;
+        Ok(resolved)
     }
 
-    fn diagnostic(
+    pub fn method(&self, owner: DeclarationId, name: &str) -> Option<&'a syn::ImplItemFn> {
+        self.implementations
+            .get(&owner)?
+            .iter()
+            .flat_map(|item| &item.items)
+            .find_map(|item| {
+                if let syn::ImplItem::Fn(method) = item
+                    && canonical(&method.sig.ident.to_string()) == canonical(name)
+                {
+                    Some(method)
+                } else {
+                    None
+                }
+            })
+    }
+
+    fn self_owner(&self, at: LineColumn) -> syn::Result<Option<DeclarationId>> {
+        if let Some(owner) = self.catalog.nominal_at(at) {
+            let generics = match self.catalog.item(owner)? {
+                syn::Item::Struct(item) => &item.generics,
+                syn::Item::Enum(item) => &item.generics,
+                _ => unreachable!(),
+            };
+            if !generics.params.is_empty() {
+                return Err(error(
+                    "implicit generic Self cannot be relocated without its original instantiation",
+                ));
+            }
+            return Ok(Some(owner));
+        }
+        let implementation = self
+            .implementations
+            .iter()
+            .flat_map(|(owner, items)| items.iter().map(move |item| (*owner, *item)))
+            .filter(|(_, item)| {
+                let range = SourceRange::of(*item);
+                range.start <= at && at < range.end
+            })
+            .max_by_key(|(_, item)| item.span().start());
+        let Some((owner, implementation)) = implementation else {
+            return Ok(None);
+        };
+        let mut current = self.catalog.index.scope_at(at);
+        let mut functions = 0;
+        while let Some(id) = current {
+            let scope = &self.catalog.index.scopes[id.0];
+            if scope.range == SourceRange::of(implementation) {
+                return Ok(Some(owner));
+            }
+            if scope.kind == ScopeKind::Function {
+                functions += 1;
+            }
+            if functions > 1
+                || matches!(
+                    scope.kind,
+                    ScopeKind::Item | ScopeKind::Const | ScopeKind::Module
+                )
+            {
+                return Err(error("Self crosses an implementation capture boundary"));
+            }
+            current = scope.parent;
+        }
+        Err(error("Self has no verified implementation scope"))
+    }
+
+    pub(super) fn diagnostic(
         &self,
         selection: &Selection<'_>,
         site: &super::ReferenceSite,
@@ -241,6 +372,18 @@ impl<'a> Resolver<'a> {
             .iter()
             .map(|segment| canonical(&segment.ident.to_string()).to_owned())
             .collect();
+        if names.first().is_some_and(|name| name == "Self") && path.leading_colon.is_none() {
+            let owner = self
+                .self_owner(at)?
+                .ok_or_else(|| error("Self has no supported nominal owner"))?;
+            let usage = if usage == ReferenceUse::TypeOrConst {
+                ReferenceUse::Type
+            } else {
+                usage
+            };
+            let target = self.resolve_item(owner, &names[1..], usage, at, &mut Vec::new())?;
+            return self.finish(target);
+        }
         if usage == ReferenceUse::TypeOrConst {
             let ty = self.walk(
                 scope,
@@ -463,7 +606,12 @@ impl<'a> Resolver<'a> {
         }
         let mut member = None;
         if !suffix.is_empty() {
-            if let syn::Item::Enum(item) = item {
+            if suffix.len() == 1
+                && usage == ReferenceUse::Value
+                && self.method(id, &suffix[0]).is_some()
+            {
+                member = Some(suffix[0].clone());
+            } else if let syn::Item::Enum(item) = item {
                 let variant = item
                     .variants
                     .iter()

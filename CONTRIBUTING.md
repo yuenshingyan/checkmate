@@ -28,7 +28,7 @@ cargo test -p checkmate --lib walkthroughs -- --nocapture --test-threads=1
 ```
 
 The internal walkthrough unit tests read the source and configuration in
-`examples/struct-return` and `examples/local-types`; run them from a full repository checkout. They share the
+`examples/struct-return`, `examples/local-types`, and `examples/inherent-methods`; run them from a full repository checkout. They share the
 same source as the public integration tests, print their analysis, and assert the
 illustrated results. They do not enable automatic context in the public macro.
 
@@ -44,7 +44,9 @@ cargo test -p checkmate --lib resolve::promote
 
 Promotion tests compile temporary original libraries and generated consumers with
 rustc. They verify runtime behavior and identity differences, not merely token strings.
-The public automatic-context pipeline is still disabled.
+Task-009 implementation tests also compile the actual inherent-methods example source;
+all copied methods and their dependencies are checked, including unused ones. The public
+automatic-context pipeline is still disabled.
 
 ## Where changes belong
 

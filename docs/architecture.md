@@ -5,11 +5,11 @@
 ## Workspace
 
 The root `Cargo.toml` is a virtual workspace. `crates/checkmate` is the procedural
-macro package; `examples/basic`, `examples/struct-return`, and `examples/local-types`
-are unpublished example packages. The last supplies ordinary source for an internal
-promotion walkthrough, not a public automatic-context integration. One root `Cargo.lock` records the workspace's resolved dependencies.
+macro package; `examples/basic`, `examples/struct-return`, `examples/local-types`, and
+`examples/inherent-methods` are unpublished example packages. The last two supply ordinary
+source for internal promotion/implementation walkthroughs, not public automatic-context integrations. One root `Cargo.lock` records the workspace's resolved dependencies.
 
-The example keeps all of its own inputs together: `src/main.rs`, `src/tests.rs`,
+The basic example keeps all of its own inputs together: `src/main.rs`, `src/tests.rs`,
 `checkmate.toml`, and `snapshots/add_if.rs`. Moving the example does not change its
 package-relative configuration or the bytes of its source snippet.
 
@@ -30,11 +30,12 @@ All paths below are inside `crates/checkmate/src/`.
 | `resolve.rs`, `resolve/collect.rs` | Test-gated reference/input collection across snippet, supplied signature, and output |
 | `resolve/catalog.rs`, `resolve/declarations.rs` | Test-gated original-item identities, namespace-aware reusable paths/imports, local-type IDs, conservative access checks |
 | `resolve/graph.rs`, `resolve/graph/collect.rs` | Test-gated deterministic transitive dependencies, recursive type/alias validation, dependency-chain errors |
+| `resolve/implementations.rs`, `resolve/implementations/methods.rs` | Test-gated inherent implementation dependencies and conservative owned-receiver dispatch checks |
 | `resolve/promote.rs`, `resolve/promote/rewrite.rs` | Test-gated local-type promotion plans, unique names, identity-aware AST rewriting, and test-only emission |
 | `snapshot.rs` | Compare selected source against a reviewed baseline; report first mismatch |
 | `generate.rs` | Signature parsing, inclusive line selection, snapshot validation, body parsing, token emission |
 | `tests.rs` | Unit tests for syntax, configuration, ranges, diagnostics, and snapshots |
-| `walkthroughs.rs` | Executable documentation using the struct-return example's real source/config |
+| `walkthroughs.rs` | Executable documentation using the examples' real source/config |
 
 ## Expansion pipeline
 
@@ -75,10 +76,13 @@ captured or inferred. Ordinary rustc type, ownership, and visibility checks stil
   recursive relationships, unsupported chains, and compiler-backed recursion checks.
 - `src/resolve/promote/tests.rs`: compiler-backed promotion, explicit nominal identity
   changes, AST rewriting, visibility/collision checks, and rejection paths.
+- `src/resolve/promote/tests/implementations.rs`: compiler-backed inherent methods, receiver
+  identity/dispatch, constructor function items, transitive behavior dependencies, privacy,
+  unsupported contexts, and the actual inherent-methods example source.
 - `src/resolve/graph/properties.rs`: bounded generated graph/source properties checked
   against independent oracles; see [coverage and properties](coverage.md).
-- `src/walkthroughs.rs`: eight repository-only unit tests that print and assert internal
-  analysis of `examples/struct-return` and `examples/local-types` source/config. See the
+- `src/walkthroughs.rs`: nine repository-only unit tests that print and assert internal
+  analysis of `examples/struct-return`, `examples/local-types`, and `examples/inherent-methods` source/config. See the
   [walkthrough guide](../examples/struct-return/README.md).
 
 ## Planned work boundary
@@ -87,9 +91,9 @@ The [design contract](automatic-context.md) defines the opt-in syntax and safety
 boundary. The [automatic-context backlog](tasks/README.md) describes new source AST, scope,
 reference-resolution, and dependency-graph passes. Whole-file source selection and
 lexical scope/import indexing, source-root mapping, reference collection, and original
-declaration resolution, dependency graphs, and local-type promotion plans are
-implemented and tested, but remain test-gated until task 011 integrates the opt-in
-pipeline. Implementation analysis is not implemented yet.
+declaration resolution, dependency graphs, local-type promotion, and a conservative
+inherent-implementation subset are implemented and tested, but remain test-gated until
+task 011 integrates the opt-in pipeline.
 
 The lexical index distinguishes hoisted items from position-dependent locals and
 tracks type/value/macro namespaces separately. It models closure capture, item
@@ -98,7 +102,7 @@ are deterministic per traversal, not persisted cross-edit snapshot identities.
 Explicit imports are indexed as namespace candidates, not claims about accessibility
 or enabled dependencies. Qualified source paths preserve `crate`/`self`/`super` meaning;
 manifest-based mapping distinguishes library and binary roots. Overlapping unproven
-import namespaces, imported binding-pattern names, implementations, conditional
+import namespaces, imported binding-pattern names, unsupported implementation forms, conditional
 compilation, and opaque binding-producing syntax still fail explicitly. Bare unresolved
 prelude constructors in binding patterns also fail; qualified constructor patterns are
 unambiguous. Ordinary extraction is unaffected by these limitations.
@@ -157,6 +161,19 @@ Arguments are rewritten before their enclosing path; shorthand fields/patterns r
 labels. Promoted definitions selected in the snippet are removed only from the generated
 copy. Copies preserve inherited/public visibility; restricted visibility, nonliteral doc
 attributes, semantic attributes, and selected/output imports fail conservatively.
+
+Implementation headers are associated with nominal declaration IDs; methods introduce
+receiver/parameter bindings but not free lexical method names. Every method on a copied
+type contributes signature/body dependencies, including otherwise-unused methods. These
+behavior edges are distinct from layout/alias edges. Reused originals retain their own
+implementations and private dependencies without inspection/copying for emission.
+
+Explicit inherent associated calls retain qualified syntax. Dot calls require a proven
+owned local nominal receiver and an inherent by-value `self` method, with matching original
+and generated receiver identities for source calls. Borrowed/autoderef/trait dispatch is
+not inferred. Bare tuple constructors are function items, not owned result values. See
+[the precise implementation subset](tasks/009-implementations.md). Receiver shorthand
+stays shorthand after rewriting; selected/output impls fail rather than being duplicated.
 
 All planned items are test-gated. Copied structs/enums are explicitly recorded as new
 nominal identities; aliases follow their targets, and reusable originals are never copied.

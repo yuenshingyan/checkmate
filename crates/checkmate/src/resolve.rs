@@ -99,8 +99,7 @@ pub(crate) fn analysis_site(
 pub(crate) struct References {
     pub snippet_start: usize,
     pub occurrences: Vec<Reference>,
-    // Validation occurs during collection; retain the set for inspection/snapshots.
-    #[cfg_attr(not(test), allow(dead_code))]
+    // Validation occurs during collection; snapshots retain the required names.
     pub required_inputs: BTreeSet<String>,
     pub deferred_operations: Vec<DeferredOperation>,
     // Retain the shell and index so Generated* IDs and their locations have an

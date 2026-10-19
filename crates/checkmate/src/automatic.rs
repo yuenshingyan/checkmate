@@ -12,9 +12,11 @@ use crate::{
     resolve::{
         collect_references,
         declarations::{Resolver, ReuseSite},
+        graph::Graph,
         promote::PromotionPlan,
     },
     scope::ScopeIndex,
+    snapshot::context::ContextSnapshot,
     source::{
         ast::{ParsedSource, SourceRange},
         origin::SourceOrigin,
@@ -33,6 +35,8 @@ struct Input {
     source: PathBuf,
     config: Option<PathBuf>,
     snapshot: Option<PathBuf>,
+    context_snapshot: Option<PathBuf>,
+    context_report: Option<String>,
     snippet: String,
     signature: String,
     output: Option<String>,
@@ -80,6 +84,11 @@ pub(crate) fn expand(
             .args
             .snapshot
             .map(|path| resolved.root.join(path.value())),
+        context_snapshot: resolved
+            .args
+            .context_snapshot
+            .map(|path| resolved.root.join(path.value())),
+        context_report: resolved.args.context_report.map(|name| name.value()),
         snippet: snippet_label,
         signature: resolved.args.fn_sig.value(),
         output: resolved
@@ -195,8 +204,55 @@ fn run(input: Input) -> std::result::Result<String, String> {
         )?;
         generated = Some(references.generated.text.clone());
         let resolver = Resolver::new(&parsed, &index, &origin, ReuseSite::PackageIntegrationTest)?;
+        let mut occupied = placement.occupied;
+        let report = input
+            .context_report
+            .as_ref()
+            .map(|name| syn::parse_str::<syn::Ident>(name))
+            .transpose()?;
+        if let Some(name) = &report {
+            let canonical = crate::resolve::catalog::canonical(&name.to_string()).to_owned();
+            if canonical
+                == crate::resolve::catalog::canonical(&template.signature.ident.to_string())
+                || placement.root_bindings.contains(&canonical)
+                || placement.pattern_bindings.contains(&canonical)
+                || matches!(canonical.as_str(), "Some" | "None" | "Ok" | "Err" | "drop")
+            {
+                return Err(crate::snapshot::context::error(
+                    "context_report name conflicts with the extracted function, a caller binding, or a standard prelude value",
+                ));
+            }
+            occupied.insert(canonical);
+        }
+        let graph = Graph::build(&resolver, &references, &selection)?;
         let mut plan =
-            PromotionPlan::build(&resolver, &references, &selection, &placement.occupied)?;
+            PromotionPlan::from_graph(&resolver, &references, &selection, &occupied, &graph)?;
+        if let Some(name) = &report {
+            check_report_name(name, &plan.items)?;
+        }
+        let review = if input.context_snapshot.is_some() || report.is_some() {
+            let model = ContextSnapshot::build(
+                &origin,
+                &resolver,
+                &references,
+                &selection,
+                &graph,
+                &template.visibility,
+            )?;
+            if let Some(path) = &input.context_snapshot {
+                let baseline = std::fs::read_to_string(path).map_err(|err| crate::snapshot::context::error(format!("cannot read context snapshot {}: {err}; explicitly review context_report data and create the baseline; compilation never creates it", path.display())))?;
+                model.check(&baseline).map_err(|err| {
+                    let message = format!("{}: {err}", path.display());
+                    err.context(message)
+                })?;
+                dependencies.insert(path.clone());
+            }
+            report
+                .map(|name| model.render().map(|text| (name, text)))
+                .transpose()?
+        } else {
+            None
+        };
         let Some(syn::Item::Fn(function)) = plan.items.last_mut() else {
             return Err(Error::new(
                 Span::call_site(),
@@ -207,6 +263,11 @@ fn run(input: Input) -> std::result::Result<String, String> {
         function.vis = template.visibility;
         if !plan.copied_nominal_types.is_empty() {
             function.attrs.push(syn::parse_quote!(#[doc = "Checkmate automatic context: copied function-local structs/enums have NEW nominal identity; they are not interchangeable with the original types."]));
+        }
+        if let Some((name, text)) = review {
+            let text = syn::LitStr::new(&text, Span::call_site());
+            plan.items
+                .push(syn::parse_quote!(fn #name() -> &'static ::core::primitive::str { #text }));
         }
         let tokens = plan.tokens();
         let paths = dependencies
@@ -221,6 +282,35 @@ fn run(input: Input) -> std::result::Result<String, String> {
     result
         .map(|tokens| tokens.to_string())
         .map_err(|err| err.render(&request, &source, generated.as_deref()))
+}
+// Review data is exposed through an accessor, never a named constant: adding a
+// constant can reinterpret a previously binding identifier as a match pattern,
+// including inside peer macro expansions or out-of-line caller modules.
+fn check_report_name(name: &syn::Ident, items: &[syn::Item]) -> Result<()> {
+    use syn::visit::Visit;
+    struct Names<'a> {
+        requested: &'a str,
+        found: bool,
+    }
+    impl<'ast> Visit<'ast> for Names<'_> {
+        fn visit_ident(&mut self, ident: &'ast syn::Ident) {
+            self.found |= crate::resolve::catalog::canonical(&ident.to_string()) == self.requested;
+        }
+    }
+    let name = name.to_string();
+    let mut names = Names {
+        requested: crate::resolve::catalog::canonical(&name),
+        found: false,
+    };
+    for item in items {
+        names.visit_item(item);
+    }
+    if names.found {
+        return Err(crate::snapshot::context::error(
+            "context_report name conflicts with a generated-plan identifier; choose a distinct review accessor name",
+        ));
+    }
+    Ok(())
 }
 fn read(path: &Path) -> Result<String> {
     std::fs::read_to_string(path).map_err(|err| {

@@ -71,6 +71,7 @@ fn every_kind_has_a_distinct_stable_code_and_remedy() {
         Kind::UnsupportedContext,
         Kind::MethodResolution,
         Kind::InternalInvariant,
+        Kind::ContextSnapshot,
     ];
     let mut remedies = std::collections::HashSet::new();
     for (index, kind) in kinds.into_iter().enumerate() {

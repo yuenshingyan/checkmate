@@ -32,6 +32,8 @@ struct Definition {
     end: usize,
     output: Option<String>,
     snapshot: Option<String>,
+    context_snapshot: Option<String>,
+    context_report: Option<String>,
     context: Option<String>,
 }
 
@@ -84,19 +86,29 @@ impl Invocation {
                             })
                     })
                     .transpose()?;
+                let args = Args {
+                    context: mode,
+                    fn_sig: LitStr::new(&definition.fn_sig, config.span()),
+                    module: LitStr::new(&definition.module, config.span()),
+                    start: LitInt::new(&definition.start.to_string(), config.span()),
+                    end: LitInt::new(&definition.end.to_string(), config.span()),
+                    output,
+                    snapshot: definition
+                        .snapshot
+                        .map(|value| LitStr::new(&value, config.span())),
+                    context_snapshot: definition
+                        .context_snapshot
+                        .map(|value| LitStr::new(&value, config.span())),
+                    context_report: definition
+                        .context_report
+                        .map(|value| LitStr::new(&value, config.span())),
+                };
+                args.validate_context_options().map_err(|error| {
+                    syn::Error::new(config.span(), format!("{context}: {error}"))
+                })?;
                 Ok(Resolved {
                     snippet: snippet.value(),
-                    args: Args {
-                        context: mode,
-                        fn_sig: LitStr::new(&definition.fn_sig, config.span()),
-                        module: LitStr::new(&definition.module, config.span()),
-                        start: LitInt::new(&definition.start.to_string(), config.span()),
-                        end: LitInt::new(&definition.end.to_string(), config.span()),
-                        output,
-                        snapshot: definition
-                            .snapshot
-                            .map(|value| LitStr::new(&value, config.span())),
-                    },
+                    args,
                     root: path.parent().unwrap_or(root).into(),
                     config: Some(path),
                     context,

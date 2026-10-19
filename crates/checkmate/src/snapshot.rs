@@ -1,5 +1,8 @@
 //! Read-only comparison against an explicitly reviewed snippet baseline.
 
+pub(crate) mod context;
+mod identity;
+
 use crate::source::bounded_line;
 
 pub(crate) fn snapshot_difference(baseline: &str, actual: &[&str], start: usize) -> Option<String> {

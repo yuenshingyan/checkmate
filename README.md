@@ -15,7 +15,9 @@ Users write their own tests. Opt-in `context = "auto"` now discovers supported c
 for verified **library-root → package integration-test** extractions. It reuses original
 types or copies supported function-local types with **new nominal identity**. Placement
 and syntax limits are deliberate; see [automatic mode](docs/usage.md#automatic-context-opt-in).
-Context snapshots remain [planned](docs/tasks/012-context-snapshots.md).
+Optional [context snapshots](docs/context-snapshots.md) now guard discovered declaration
+syntax and mappings. Review data is available through a test-only accessor; files are
+created or updated only through explicit user review.
 
 ## Quick start
 

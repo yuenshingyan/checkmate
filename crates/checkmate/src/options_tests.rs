@@ -75,10 +75,183 @@ fn inline_and_toml_context_parity_and_snippet_identity() {
             inline.args.snapshot.unwrap().value(),
             configured.args.snapshot.unwrap().value()
         );
+        assert!(inline.args.context_snapshot.is_none());
+        assert!(inline.args.context_report.is_none());
+        assert!(configured.args.context_snapshot.is_none());
+        assert!(configured.args.context_report.is_none());
         assert!(inline.config.is_none());
         assert!(inline.context.is_empty());
         assert!(configured.config.is_some());
         assert!(configured.context.contains("[snippets.actual_key]"));
+    }
+}
+
+#[test]
+fn context_baseline_options_have_inline_toml_parity() {
+    for report in ["BASELINE", "r#type", "_baseline", "基準"] {
+        let inline = inline(quote! {
+            context = "auto", context_snapshot = "../baselines/demo.json",
+            context_report = #report
+        })
+        .unwrap()
+        .resolve(Path::new("inline-root"))
+        .unwrap();
+        let configured = configured(&format!(
+            "context = \"auto\"\ncontext_snapshot = \"../baselines/demo.json\"\ncontext_report = {report:?}"
+        ))
+        .unwrap();
+        for args in [&inline.args, &configured.args] {
+            assert_eq!(args.context, Context::Auto);
+            assert_eq!(
+                args.context_snapshot.as_ref().unwrap().value(),
+                "../baselines/demo.json"
+            );
+            assert_eq!(args.context_report.as_ref().unwrap().value(), report);
+            assert_eq!(args.snapshot.as_ref().unwrap().value(), "demo.rs");
+        }
+        assert_eq!(inline.root, Path::new("inline-root"));
+        assert_eq!(
+            configured.root,
+            configured.config.as_ref().unwrap().parent().unwrap()
+        );
+    }
+    // Each option is independently optional.
+    for name in ["context_snapshot", "context_report"] {
+        let key = syn::Ident::new(name, proc_macro2::Span::call_site());
+        assert!(inline(quote! { context = "auto", #key = "BASELINE" }).is_ok());
+        assert!(configured(&format!("context = \"auto\"\n{name} = \"BASELINE\"")).is_ok());
+    }
+}
+
+#[test]
+fn context_baseline_options_require_auto() {
+    for name in ["context_snapshot", "context_report"] {
+        let key = syn::Ident::new(name, proc_macro2::Span::call_site());
+        let expected = format!("{name} requires context = \"auto\"");
+        assert!(
+            inline(quote! { #key = "BASELINE" })
+                .err()
+                .unwrap()
+                .to_string()
+                .contains(&expected)
+        );
+        let error = configured(&format!("{name} = \"BASELINE\""))
+            .err()
+            .unwrap()
+            .to_string();
+        assert!(error.contains(&expected));
+        assert!(error.contains("[snippets.actual_key]"));
+    }
+}
+
+#[test]
+fn context_baseline_options_reject_nonstrings_duplicates_and_mixing() {
+    for name in ["context_snapshot", "context_report"] {
+        let key = syn::Ident::new(name, proc_macro2::Span::call_site());
+        for value in [
+            quote!(true),
+            quote!(1),
+            quote!(1.5),
+            quote!([]),
+            quote!({}),
+            quote!(BASELINE),
+        ] {
+            assert!(inline(quote! { context = "auto", #key = #value }).is_err());
+        }
+        for value in ["true", "1", "1.5", "[]", "{}", "1979-05-27"] {
+            assert!(configured(&format!("context = \"auto\"\n{name} = {value}")).is_err());
+        }
+        assert!(
+            inline(quote! { context = "auto", #key = "BASELINE", #key = "BASELINE" })
+                .err()
+                .unwrap()
+                .to_string()
+                .contains(&format!("duplicate option `{name}`"))
+        );
+        assert!(
+            configured(&format!(
+                "context = \"auto\"\n{name} = \"BASELINE\"\n{name} = \"BASELINE\""
+            ))
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("duplicate")
+        );
+        for input in [
+            quote! { config = "options.toml", snippet = "actual_key", #key = "BASELINE" },
+            quote! { #key = "BASELINE", config = "options.toml", snippet = "actual_key" },
+            quote! { config = "options.toml", #key = "BASELINE" },
+            quote! { snippet = "actual_key", #key = "BASELINE" },
+        ] {
+            assert!(
+                syn::parse2::<Invocation>(input)
+                    .err()
+                    .unwrap()
+                    .to_string()
+                    .contains("cannot be mixed with inline options")
+            );
+        }
+    }
+}
+
+#[test]
+fn context_report_requires_one_identifier_in_both_forms() {
+    for value in [
+        "",
+        "_",
+        " _ ",
+        "r#_",
+        "type",
+        "self",
+        "r#self",
+        "foo::bar",
+        "foo bar",
+        "foo-bar",
+        "123",
+        "report.json",
+        "REPORT;",
+        "const REPORT: &str = x",
+    ] {
+        assert!(
+            inline(quote! { context = "auto", context_report = #value })
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("context_report must be one Rust identifier"),
+            "{value:?}"
+        );
+        let error = configured(&format!("context = \"auto\"\ncontext_report = {value:?}"))
+            .err()
+            .unwrap()
+            .to_string();
+        assert!(
+            error.contains("context_report must be one Rust identifier"),
+            "{value:?}"
+        );
+        assert!(error.contains("[snippets.actual_key]"));
+    }
+}
+
+#[test]
+fn toml_context_options_validate_selected_definition() {
+    // Like context/output, semantic validation applies only to the selected definition.
+    let other =
+        "\n[snippets.other]\nfn_sig = \"fn other()\"\nmodule = \"other.rs\"\nstart = 1\nend = 2\n";
+    for options in [
+        "context_snapshot = \"baseline.json\"",
+        "context_report = \"BASELINE\"",
+        "context = \"auto\"\ncontext_report = \"not an identifier\"",
+    ] {
+        assert!(configured(&format!("{other}{options}")).is_ok());
+    }
+    // Deserialization still checks types, unknown fields, and duplicates everywhere.
+    for options in [
+        "context_report = 1",
+        "context_snapshot = false",
+        "unknown = 1",
+        "context_report = \"A\"\ncontext_report = \"B\"",
+    ] {
+        assert!(configured(&format!("{other}{options}")).is_err());
     }
 }
 

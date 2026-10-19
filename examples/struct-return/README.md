@@ -228,7 +228,9 @@ For function-local types that cannot be imported, see the separate
 ## Remaining work
 
 Public automatic mode is deliberately limited to the supported syntax and verified
-placement; it is not whole-program compiler inference. Context snapshots remain task 012.
+placement; it is not whole-program compiler inference. Task 012 adds optional
+[context snapshots](../../docs/context-snapshots.md), demonstrated separately in the
+[local-type example](../local-types/README.md#reviewed-context-baseline).
 These examples and individual-pass walkthroughs do not complete
 [task 014](../../docs/tasks/014-documentation.md)'s integrated documentation work.
 The [backlog](../../docs/tasks/README.md) tracks remaining implementation.

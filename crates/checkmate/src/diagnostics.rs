@@ -25,6 +25,7 @@ pub(crate) enum Kind {
     UnsupportedContext,
     MethodResolution,
     InternalInvariant,
+    ContextSnapshot,
 }
 
 impl Kind {
@@ -77,6 +78,10 @@ impl Kind {
             Self::InternalInvariant => (
                 "CM012",
                 "Report this Checkmate failure with a minimal reproduction.",
+            ),
+            Self::ContextSnapshot => (
+                "CM013",
+                "Resolve the reported identity/name issue first if present, then inspect context_report and explicitly review/create/update the baseline; compilation never writes it.",
             ),
         }
     }

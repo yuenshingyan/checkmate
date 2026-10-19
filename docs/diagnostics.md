@@ -54,6 +54,7 @@ wrappers; they are **not inferred by matching error-message strings**.
 | CM010 | Other unsupported context |
 | CM011 | Unproven method/trait resolution |
 | CM012 | Internal analysis invariant failure |
+| CM013 | Invalid/mismatching context baseline, ambiguous snapshot identity, or unsafe review accessor name |
 
 A structured error retains a category, message, optional identifier and known declaration
 kind, optional location, and dependency subjects with an omission count. Unknown kinds
@@ -98,5 +99,8 @@ errors or claim that syntactic analysis proves semantic equivalence.
 Whole-file indexing may still reject unsupported syntax outside the selection. Remedies
 therefore allow ordinary extraction with explicit test context; they do not promise that
 moving a line range will solve every barrier. No remedy widens original visibility,
-runs an initializer, guesses an input type, or silently rewrites a signature. Full public
-pipeline integration and context snapshots remain tasks 011 and 012.
+runs an initializer, guesses an input type, or silently rewrites a signature. Public
+integration landed in task 011; task 012 adds [context baseline diagnostics](context-snapshots.md)
+with added/removed/changed declarations and dependency-mapping summaries. These use the
+same bounded renderer. Inspect full review data explicitly through the accessor; compilation
+never prints, creates, updates, or implicitly approves a baseline.

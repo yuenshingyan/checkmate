@@ -1,9 +1,9 @@
 # Automatic context: supported subset and safety contract
 
-**Status:** tasks 001–011 implement the initial public opt-in. The public placement
+**Status:** tasks 001–012 implement the public opt-in and optional context baselines. The public placement
 boundary is currently verified library roots and package integration-test roots;
-see [usage and restrictions](usage.md#automatic-context-opt-in). Tasks 012–014 cover
-context baselines, further integration regressions, and integrated documentation.
+see [usage and restrictions](usage.md#automatic-context-opt-in). Tasks 013–014 cover
+further integration regressions and integrated documentation.
 
 ## Public boundary
 
@@ -134,10 +134,12 @@ Tasks 010–011 implement this as a [structured diagnostic boundary](diagnostics
 reports include snippet identity, typed categories, optional subjects/sites/chains, bounded
 UTF-8-safe output, and remedies. Ordinary-mode errors have not been replaced or relabeled.
 
-Context baselines are a separate versioned extension in task 012. Existing snippet
-snapshots remain readable. Discovered declaration contents and dependency mappings
-must become reviewable; stable identities must not depend on an absolute checkout
-location. Compilation never creates or approves either kind of baseline.
+Task 012 adds a separate [versioned context baseline](context-snapshots.md). Existing
+snippet snapshots remain readable. Discovered declaration contents and dependency
+mappings use logical identities rather than checkout paths or transient IDs. Ambiguous
+anchors fail instead of guessing. A test-only accessor provides review data; compilation
+never creates or approves either kind of baseline. Original nodes remain terminals,
+so this is not a fingerprint of all private dependencies or compiler/runtime behavior.
 
 ## Completion evidence
 

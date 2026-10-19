@@ -36,6 +36,7 @@ All paths below are inside `crates/checkmate/src/`.
 | `diagnostics.rs` | Structured categories, source/generated sites, subjects/chains, bounded reports, and explicit invocation-anchored conversion |
 | `resolve/promote.rs`, `resolve/promote/rewrite.rs` | Local-type promotion plans, unique names, identity-aware AST rewriting, and test-only emission |
 | `snapshot.rs` | Compare selected source against a reviewed baseline; report first mismatch |
+| `snapshot/context.rs`, `snapshot/identity.rs` | Versioned context model, named logical identities, normalized comparison, bounded differences, no baseline writes |
 | `generate.rs` | Signature parsing, inclusive line selection, snapshot validation, body parsing, token emission |
 | `tests.rs` | Unit tests for syntax, configuration, ranges, diagnostics, and snapshots |
 | `walkthroughs.rs` | Executable documentation using the examples' real source/config |
@@ -66,12 +67,13 @@ Ordinary rustc type, ownership, and visibility checks still apply.
 ```text
 snapshot/range checks → whole-file AST and selection
     → library origin + compiler/manifest/caller-root placement proof → scopes
-    → reference/input collection → resolver → graph → PromotionPlan
-    → test-only plan + file dependency markers
+    → reference/input collection → resolver → shared graph → PromotionPlan
+    → optional context model + reviewed baseline comparison
+    → test-only plan + optional review accessor + file dependency markers
 ```
 
 Only a complete approved plan emits tokens. The source, caller root, package manifest,
-configuration, and optional snapshot are tracked; no out-of-line source modules or
+configuration, and optional snippet/context baselines are tracked; no out-of-line source modules or
 workspace manifests are read. Caller proof uses physical compiler locations, literal
 fully qualified invocation tokens, target layout/name disambiguation, and conservative
 namespace/attribute checks. Public `SameTarget` placement remains disabled.
@@ -91,6 +93,13 @@ invocation spans. The ordinary extraction path retains its original compiler tok
 - `tests/automatic.rs`: real-Cargo original/local identity, methods, privacy, backend
   restoration, unsupported placement, incremental context/config/snapshot/manifest changes,
   and input immutability.
+- `src/snapshot/context/tests.rs`, `src/snapshot/identity.rs`: stable identities,
+  normalized content/dependency diffs, ambiguity/schema failures, and read-only behavior.
+- `tests/context_snapshots.rs`: explicit review, native context-only drift/recompilation,
+  baseline-only edits, coexistence with snippet guards, report-name safety/test gating,
+  and byte-identical build inputs.
+- `examples/local-types/tests/context_snapshot.rs`: public reviewed baseline and an
+  explicitly invoked, read-only report printer.
 - `examples/*/tests/automatic.rs`: public automatic extraction using the existing
   struct-return, local-types, and inherent-methods sources.
 - `tests/extraction.rs`: compiled functions using inline and TOML definitions.
@@ -125,8 +134,9 @@ invocation spans. The ordinary extraction path retains its original compiler tok
 The [design contract](automatic-context.md) defines the supported subset. Task 011 now
 wires the tested AST/scope/resolver/graph/promotion stages into the public opt-in, limited
 to verified library-source and package integration-test roots. Omission preserves the
-ordinary extraction pipeline. Context snapshots, further regressions, and integrated
-feature documentation remain [tasks 012–014](tasks/README.md).
+ordinary extraction pipeline. Task 012 adds optional [context snapshots](context-snapshots.md)
+from the same validated graph used by promotion. Further regressions and integrated
+feature documentation remain [tasks 013–014](tasks/README.md).
 
 The lexical index distinguishes hoisted items from position-dependent locals and
 tracks type/value/macro namespaces separately. It models closure capture, item
@@ -199,6 +209,8 @@ receiver/parameter bindings but not free lexical method names. Every method on a
 type contributes signature/body dependencies, including otherwise-unused methods. These
 behavior edges are distinct from layout/alias edges. Reused originals retain their own
 implementations and private dependencies without inspection/copying for emission.
+Context snapshots record their direct declaration and known same-file inherent impl
+syntax as review data, but do not expand their private/transitive dependencies.
 
 Explicit inherent associated calls retain qualified syntax. Dot calls require a proven
 owned local nominal receiver and an inherent by-value `self` method, with matching original

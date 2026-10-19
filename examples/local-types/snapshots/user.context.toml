@@ -1,0 +1,117 @@
+format = "checkmate-context"
+version = 1
+extraction = "fn snapshot_user (name : String , active : bool) -> User { let user = User { name , active , } ; user }"
+required_inputs = [
+    "active",
+    "name",
+]
+
+[source]
+package = "checkmate-local-example"
+library = "checkmate_local_example"
+path = "src/lib.rs"
+owner = "crate/fn:original"
+
+[[references]]
+origin = "signature"
+path = "String"
+usage = "type"
+
+[references.target]
+declaration = "external::: std :: string :: String"
+route = ":: std :: string :: String"
+
+[[references]]
+origin = "signature"
+path = "bool"
+usage = "type"
+
+[references.target]
+declaration = "external::: core :: primitive :: bool"
+route = ":: core :: primitive :: bool"
+
+[[references]]
+origin = "signature"
+path = "User"
+usage = "type"
+
+[references.target]
+declaration = "source:crate/fn:original/struct:User"
+
+[[references]]
+origin = "source"
+path = "User"
+usage = "constructor"
+
+[references.target]
+declaration = "source:crate/fn:original/struct:User"
+
+[[references]]
+origin = "source"
+path = "name"
+usage = "value"
+
+[references.target]
+
+[[references]]
+origin = "source"
+path = "active"
+usage = "value"
+
+[references.target]
+
+[[references]]
+origin = "output"
+path = "user"
+usage = "value"
+
+[references.target]
+
+[declarations."external::: core :: primitive :: bool"]
+role = "external"
+implementations = []
+references = []
+edges = []
+
+[declarations."external::: std :: string :: String"]
+role = "external"
+implementations = []
+references = []
+edges = []
+
+[declarations."source:crate/fn:original/struct:User"]
+role = "copied_struct"
+syntax = "struct User { name : String , active : bool , }"
+implementations = []
+
+[[declarations."source:crate/fn:original/struct:User".references]]
+path = "String"
+usage = "type"
+indirect = false
+layout = true
+expansion = true
+
+[declarations."source:crate/fn:original/struct:User".references.target]
+declaration = "external::: std :: string :: String"
+route = ":: std :: string :: String"
+
+[[declarations."source:crate/fn:original/struct:User".references]]
+path = "bool"
+usage = "type"
+indirect = false
+layout = true
+expansion = true
+
+[declarations."source:crate/fn:original/struct:User".references.target]
+declaration = "external::: core :: primitive :: bool"
+route = ":: core :: primitive :: bool"
+
+[[declarations."source:crate/fn:original/struct:User".edges]]
+target = "external::: core :: primitive :: bool"
+unguarded_layout = true
+alias_expansion = true
+
+[[declarations."source:crate/fn:original/struct:User".edges]]
+target = "external::: std :: string :: String"
+unguarded_layout = true
+alias_expansion = true

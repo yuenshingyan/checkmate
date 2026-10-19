@@ -21,8 +21,18 @@ pub(crate) struct Caller {
     pub bin_name: Option<String>,
 }
 impl Caller {
-    pub fn capture(tokens: String) -> Self {
-        let span = Span::call_site();
+    pub fn capture(input: &proc_macro::TokenStream) -> Self {
+        // Anchor to an original argument token, before parsing or reconstruction.
+        // Some editor macro hosts give call_site() the macro *definition*'s
+        // coordinates even when input-token locations are available. A token
+        // location alone is not placement proof: verify() still checks the
+        // physical target root, literal invocation, full token agreement, and
+        // caller namespaces. Empty input is rejected by the argument parser.
+        let span = input
+            .clone()
+            .into_iter()
+            .next()
+            .map_or_else(Span::call_site, |token| token.span().into());
         Self {
             file: span.local_file().and_then(|path| {
                 if path.is_absolute() {
@@ -32,7 +42,7 @@ impl Caller {
                 }
             }),
             at: span.start(),
-            tokens,
+            tokens: input.to_string(),
             crate_name: std::env::var("CARGO_CRATE_NAME").ok(),
             package_name: std::env::var("CARGO_PKG_NAME").ok(),
             bin_name: std::env::var("CARGO_BIN_NAME").ok(),
@@ -68,7 +78,7 @@ pub(super) fn verify(
         ));
     }
     let file = caller.file.as_ref().ok_or_else(|| {
-        fail("compiler invocation file is unavailable; automatic context cannot verify placement")
+        fail("compiler invocation file is unavailable; automatic context cannot verify placement. Editor macro hosts need source-location support; see docs/editor-support.md. This does not mean the selected source path is wrong; no placement was guessed")
     })?;
     let file = origin
         .package_root

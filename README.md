@@ -2,6 +2,8 @@
 
 Generate test-only Rust functions from existing source snippets—without adding
 markers, annotations, or wrappers to the original code. Requires **Rust 1.88+**.
+The workspace's [editor/development setup](docs/editor-support.md) pins Rust 1.99.1
+and configures a compatible rust-analyzer macro protocol.
 
 You supply the line range, function signature, typed inputs, optional output, and your
 own tests. Checkmate extracts a copy; it does not execute earlier statements or capture
@@ -100,6 +102,8 @@ fails compilation without updating any file. See the
 - [Example index](examples/README.md): original structs, copied locals, tuples, checked
   inherent methods, and clearly separate internal analysis walkthroughs.
 - [Diagnostics](docs/diagnostics.md): bounded Checkmate reports versus rustc errors.
+- [rust-analyzer setup](docs/editor-support.md): real editor expansion, required metadata,
+  tested versions, and saved-file limitations.
 - [Architecture](docs/architecture.md): discovery, scope resolution, graph, promotion, and emission.
 - [Regression matrix](docs/regression-tests.md) and [coverage limits](docs/coverage.md):
   behavioral tests and bounded properties are not formal guarantees or new coverage measurements.

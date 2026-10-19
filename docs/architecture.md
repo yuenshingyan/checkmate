@@ -81,6 +81,12 @@ workspace manifests are read. Caller proof uses physical compiler locations, lit
 fully qualified invocation tokens, target layout/name disambiguation, and conservative
 namespace/attribute checks. Public `SameTarget` placement remains disabled.
 
+Caller capture uses an original input token's physical location, before reconstruction;
+editor hosts may give `Span::call_site()` definition coordinates instead. This does not
+replace any placement check or authorize forwarded tokens. The
+[tested rust-analyzer setup](editor-support.md) enables a metadata-capable macro protocol;
+legacy hosts still fail closed, and saved files remain the analysis inputs.
+
 File analysis uses proc-macro2's pinned fallback parser because compiler-parsed strings
 lack useful file-relative locations. A process-global backend switch is protected by a
 macro-entry mutex covering **all** invocations and an unwind-safe restoration guard.
@@ -93,6 +99,10 @@ invocation spans. The ordinary extraction path retains its original compiler tok
 - `src/tests.rs`: isolated parser/expansion tests, using temporary projects where needed.
 - `src/options_tests.rs`, `src/automatic/tests.rs`: opt-in parity, checked placement,
   complete dependency markers, all-item test gating, and fail-closed plans.
+- `tests/caller_spans.rs`: original argument locations, literal delimiters/config calls,
+  and continued rejection of forwarded, nested, and included invocations.
+- `scripts/test_rust_analyzer.py`: opt-in real LSP expansion, hover, diagnostics,
+  unsaved-input rejection, and buffer restoration (separate from Cargo tests).
 - `tests/automatic.rs`: real-Cargo original/local identity, methods, privacy, backend
   restoration, unsupported placement, incremental context/config/snapshot/manifest changes,
   and input immutability.

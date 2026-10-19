@@ -135,7 +135,9 @@ workspace root. Users still write their own tests.
 
 ## Automatic context (opt-in)
 
-Requires Rust 1.88+ and a normal Cargo build. The runnable
+Requires Rust 1.88+ and a normal Cargo build. Editor expansion additionally needs the
+[compatible rust-analyzer/server setup](editor-support.md); its legacy macro protocol
+does not provide the physical caller location required by automatic mode. The runnable
 [automatic-context example](../examples/automatic-context/tests/automatic.rs) uses a
 literal qualified call at the root of `examples/automatic-context/tests/automatic.rs`:
 
@@ -233,7 +235,7 @@ is not proof of whole-program semantic equivalence.
 | Imports and paths | Resolve known explicit imports/aliases and inline modules. Required globs, ambiguous routes, and out-of-line dependency discovery are unsupported. |
 | Standard/external paths | Only known unshadowed prelude mappings are proven. Supporting `Box`/`Vec` types does not imply support for `Box::new`/`Vec::new` discovery. Matching nonstandard Cargo aliases alone does not prove cross-target dependency identity. |
 | Inherent methods | Check all methods of required copied types, even unused ones. Only the conservative non-generic subset is supported; dot calls require proven owned nominal receivers and by-value `self`. Qualified calls can support borrowed methods without inferred dispatch. |
-| Traits and compiler integration | Trait/blanket impl copying, general method lookup, autoref/autoderef inference, and full compiler/rust-analyzer integration remain deferred. |
+| Traits and compiler integration | Trait/blanket impl copying, general method lookup, autoref/autoderef inference, and full compiler integration remain deferred. Bounded rust-analyzer expansion is available with the [tested editor setup](editor-support.md), not full semantic integration. |
 | Macros and attributes | Macros in moved snippets/copied declarations, derives on copied types, conditional compilation affecting required context, and unproven semantic attributes are rejected; literal documentation is supported. Reused original behavior remains in its original crate. |
 
 See the [safety contract and detailed matrix](automatic-context.md),

@@ -4,6 +4,15 @@ Task 010 supplies structured analysis errors; task 011 connects them to public
 `context = "auto"` with verified invocation context. Ordinary extraction retains its
 existing diagnostics. Parser/configuration errors remain ordinary `syn` errors.
 
+## Editor location errors
+
+An editor `CM003` reporting an unavailable invocation file does **not** mean the selected
+source path is wrong. rust-analyzer's legacy macro protocol omits physical file locations;
+a compatible bidirectional protocol/server is required. The repository supplies a tested
+[editor configuration and troubleshooting guide](editor-support.md). Restart rust-analyzer
+after changing its environment/toolchain. Do not disable `macro-error` diagnostics or
+change original source merely to hide this error. Missing metadata still fails closed.
+
 ## Runnable example
 
 From the repository root:

@@ -26,7 +26,9 @@ use syn::parse_macro_input;
 /// Omit `context` for ordinary extraction and supply required context in the test
 /// scope. Opt into `context = "auto"` to discover supported declarations from a
 /// verified library root, using a literal fully qualified invocation at a package
-/// integration-test crate root (Rust 1.88+ and Cargo required).
+/// integration-test crate root (Rust 1.88+ and Cargo required). Editor expansion
+/// additionally needs physical source locations from a compatible macro host;
+/// see `docs/editor-support.md` for the tested rust-analyzer/server configuration.
 ///
 /// Both modes require your explicit typed inputs, inclusive line range, and tests;
 /// you also choose an optional output expression. Earlier initializers are never executed or captured. Automatic mode
@@ -87,7 +89,7 @@ pub fn extract_fn(input: TokenStream) -> TokenStream {
     let _expansion = EXPANSION
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
-    let caller = automatic::Caller::capture(input.to_string());
+    let caller = automatic::Caller::capture(&input);
     let invocation = parse_macro_input!(input as Invocation);
     let result = std::env::var_os("CARGO_MANIFEST_DIR")
         .ok_or_else(|| syn::Error::new(invocation.span(), "CARGO_MANIFEST_DIR is not set"))

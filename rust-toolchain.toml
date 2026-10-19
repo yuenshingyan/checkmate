@@ -1,0 +1,6 @@
+# Development/editor pairing: rust-analyzer's bidirectional proc-macro protocol
+# needs a compatible toolchain server. The library's compiler MSRV stays 1.88.
+[toolchain]
+channel = "1.99.1"
+profile = "minimal"
+components = ["clippy", "rustfmt", "rust-src"]

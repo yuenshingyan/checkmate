@@ -315,10 +315,20 @@ fn report_names_auto_only_options_and_test_only_visibility() {
         c.write(
             "tests/probe.rs",
             &format!(
-                "{}fn main() {{ let _: &str = CONTEXT; }}\n",
+                "{}fn main() {{ let _: &str = CONTEXT(); }}\n",
                 inline("context_report = \"CONTEXT\"")
             ),
         );
-        c.check(&["cannot find value `CONTEXT`"]);
+        c.check(&["E0425", "cannot find", "`CONTEXT`"]);
+        // Check the extracted function independently: gating only the review
+        // accessor must not satisfy the automatic non-test emission contract.
+        c.write(
+            "tests/probe.rs",
+            &format!(
+                "{}fn main() {{ let _ = extracted(7); }}\n",
+                inline("context_report = \"CONTEXT\"")
+            ),
+        );
+        c.check(&["E0425", "cannot find", "`extracted`"]);
     }
 }

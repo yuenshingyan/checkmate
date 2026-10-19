@@ -5,7 +5,7 @@
 This package supplies one ordinary Rust source file for two distinct demonstrations:
 
 1. **Public API:** extract and test snippets today, with explicit imports.
-2. **Internal foundations:** inspect what tasks 004–005 can discover, without claiming
+2. **Internal foundations:** inspect what tasks 004–006 can discover, without claiming
    the public macro automatically discovers context yet.
 
 ## Source remains ordinary Rust
@@ -176,6 +176,22 @@ This does not contradict the passing ordinary extraction test. Ordinary extracti
 lets rustc check the supplied function directly; future automatic context discovery
 must determine which additional implementations/dependencies to bring along. The
 collector deliberately does not pretend to have solved method or trait resolution.
+
+### 6. Reusable original declarations
+
+Task 006 resolves both `Account` references (signature and construction) to the same
+original declaration and prints a generated import:
+
+```rust
+use ::checkmate_struct_example::models::User as Account;
+```
+
+The resolver is explicitly told this is a same-package integration-test context.
+It uses the verified library name, does not copy `User`, and leaves final field/type
+privacy checks to Rust. Separate compiler-backed unit tests prove the imported type
+is the original type and inaccessible items/fields still fail. Task 011 must establish
+actual invocation placement before enabling this in `extract_fn!`; the public example
+continues to import `Account` explicitly.
 
 ## What is not demonstrated yet
 

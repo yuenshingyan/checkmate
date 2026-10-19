@@ -24,6 +24,9 @@ pub(crate) struct SourceOrigin {
     pub target_name: String,
     // Candidates, not assertions that an optional/target-specific crate is active.
     pub extern_candidates: BTreeSet<String>,
+    // Keep manifest aliases separate so std/core cannot masquerade as a proven
+    // standard-library mapping in the later declaration resolver.
+    pub dependency_candidates: BTreeSet<String>,
 }
 
 impl SourceOrigin {
@@ -194,13 +197,15 @@ impl SourceOrigin {
             )));
         }
         let (target_kind, target_name) = matches.remove(0);
-        let mut extern_candidates = BTreeSet::from(["std".into(), "core".into()]);
-        dependencies(&document, &mut extern_candidates)?;
+        let mut dependency_candidates = BTreeSet::new();
+        dependencies(&document, &mut dependency_candidates)?;
         if let Some(targets) = document.get("target").and_then(toml::Value::as_table) {
             for target in targets.values() {
-                dependencies(target, &mut extern_candidates)?;
+                dependencies(target, &mut dependency_candidates)?;
             }
         }
+        let mut extern_candidates = dependency_candidates.clone();
+        extern_candidates.extend(["std".into(), "core".into()]);
         Ok(Self {
             package_root,
             manifest,
@@ -208,6 +213,7 @@ impl SourceOrigin {
             target_kind,
             target_name,
             extern_candidates,
+            dependency_candidates,
         })
     }
 }

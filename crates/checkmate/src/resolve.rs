@@ -1,9 +1,12 @@
-//! Scope-aware reference collection, before declaration/path resolution (task 006).
+//! Scope-aware reference collection and conservative original-declaration resolution.
 //!
-//! Unknown paths, ambiguous type/const arguments, and method calls remain explicit
-//! deferred work. Nothing here infers types, runs initializers, or emits code.
+//! Collection records deferred operations; resolution either proves a reusable
+//! path/local identity or reports unsupported context. Nothing infers input types,
+//! runs initializers, or copies original declarations. Import emission is test-only.
 
+pub(crate) mod catalog;
 mod collect;
+pub(crate) mod declarations;
 
 use std::collections::BTreeSet;
 
@@ -17,6 +20,7 @@ use crate::source::ast::{ParsedSource, Selection, SourceRange};
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum ReferenceUse {
     Type,
+    Constructor,
     Value,
     TypeOrConst,
 }
@@ -58,8 +62,16 @@ pub(crate) struct Reference {
     pub site: ReferenceSite,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum DeferredKind {
+    Method,
+    QualifiedTrait,
+    QualifiedPath,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct DeferredOperation {
+    pub kind: DeferredKind,
     pub description: String,
     pub site: ReferenceSite,
 }

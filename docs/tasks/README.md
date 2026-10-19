@@ -26,7 +26,7 @@ external types/imports to be available at its invocation site. See the
 | [x] | [004 — Index module paths and explicit imports](004-import-index.md) | 003 |
 | [x] | [005 — Collect references and required inputs](005-reference-collection.md) | 003, 004 |
 | [x] | [006 — Resolve reusable original declarations](006-original-declarations.md) | 004, 005 |
-| [ ] | [007 — Build the dependency graph](007-dependency-graph.md) | 006 |
+| [x] | [007 — Build the dependency graph](007-dependency-graph.md) | 006 |
 | [ ] | [008 — Promote self-contained local types](008-local-types.md) | 007 |
 | [ ] | [009 — Handle a conservative implementation subset](009-implementations.md) | 008 |
 | [ ] | [010 — Report unsupported context precisely](010-diagnostics.md) | 006, 008, 009 |
@@ -53,10 +53,11 @@ Review/merge in this order (or compare each branch against its listed base):
 | 005 | `task/005-reference-collection` | `task/004-import-index` |
 | Current examples | `examples/context-walkthroughs` | `task/005-reference-collection` |
 | 006 | `task/006-original-declarations` | `examples/context-walkthroughs` |
+| 007 | `task/007-dependency-graph` | `task/006-original-declarations` |
 
-Tasks 002–006 are tested internal foundations, deliberately test-gated until
+Tasks 002–007 are tested internal foundations, deliberately test-gated until
 011 adds the public opt-in pipeline. The macro still does not accept `context = "auto"`.
-Next: task 007 (dependency graph), then 008 (local-type promotion).
+Next: task 008 (local-type promotion), then 009 (implementation analysis).
 The [current examples](../../examples/README.md) illustrate these foundations and the
 existing public API; they do not mark task 014's integrated-feature documentation complete.
 

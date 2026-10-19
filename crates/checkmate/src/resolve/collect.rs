@@ -471,6 +471,7 @@ impl Collector<'_> {
                 usage,
                 target,
                 site: self.site(path.span()),
+                generated_range: SourceRange::of(path),
             });
         }
     }

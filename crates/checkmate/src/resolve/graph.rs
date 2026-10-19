@@ -319,4 +319,6 @@ fn cycle(nodes: &BTreeMap<NodeId, Node>, aliases: bool) -> Option<Vec<NodeId>> {
 }
 
 #[cfg(test)]
+mod properties;
+#[cfg(test)]
 mod tests;

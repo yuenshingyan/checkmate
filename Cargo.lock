@@ -34,6 +34,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "checkmate-local-example"
+version = "0.1.0"
+
+[[package]]
 name = "checkmate-struct-example"
 version = "0.1.0"
 dependencies = [

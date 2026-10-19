@@ -33,7 +33,8 @@ mode requires a parseable source file and a structurally valid selection.
 3. Never run earlier statements, capture their current values, or invent inputs.
 4. Resolve identifiers by scope, namespace, and declaration identity, not spelling alone.
 5. Preserve original type identity when reusing an accessible original declaration.
-6. Copied function-local types have new identity. Do not substitute them for an
+6. Copied function-local structs/enums have new nominal identity; aliases follow
+   their rewritten targets and do not themselves create nominal types. Do not substitute copies for an
    inaccessible module-level type or claim equivalence with the original type.
 7. Reject ambiguous or unsupported dependencies with a diagnostic. No silent fallback
    to a different extraction or partial dependency plan.
@@ -106,7 +107,9 @@ existing function that accepts `crate::models::User`.
 For a self-contained `User` declared inside the original function, create a uniquely
 named test-only type beside the generated function in its invocation scope. Rewrite
 only references resolved to that declaration, including the output and signature.
-Tests in that scope can inspect its fields, but it is a **new type**. Reject dependency
+Tests in that scope can inspect its fields, but a copied struct/enum is a **new nominal
+type**. A copied type alias is transparent and follows its rewritten target; when that
+target is a reused original type, its identity remains original. Reject dependency
 plans that require interoperability with the unnameable original type. Do not copy
 inaccessible module-level types as if they were function-local declarations.
 

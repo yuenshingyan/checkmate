@@ -3,12 +3,13 @@
 
 use proc_macro2::{LineColumn, TokenStream};
 use quote::quote;
+use syn::spanned::Spanned;
 
 use super::catalog::{Catalog, canonical, error};
 use super::{DeferredKind, ReferenceOrigin, ReferenceTarget, ReferenceUse, References};
 use crate::scope::imports::ImportId;
 use crate::scope::{DeclarationId, DeclarationKind, Lookup, Namespace, ScopeId, ScopeKind};
-use crate::source::ast::{ParsedSource, Selection};
+use crate::source::ast::{ParsedSource, Selection, SourceRange};
 use crate::source::origin::{SourceOrigin, TargetKind};
 
 /// These are not inferred from a filename or exposed as macro options. The caller
@@ -180,9 +181,31 @@ impl<'a> Resolver<'a> {
                 {
                     return Ok(Resolved::Binding);
                 }
-                let at = if reference.site.origin == ReferenceOrigin::Source { reference.site.range.start } else { selection.range.start };
-                let scope = self.catalog.index.scope_at(at).ok_or_else(|| error("reference has no original lexical scope"))?;
                 let path: syn::Path = syn::parse_str(&reference.path)?;
+                if reference.site.origin == ReferenceOrigin::Source && path.is_ident("Self")
+                    && reference.usage != ReferenceUse::Value
+                    && let Some(declaration) = self.catalog.nominal_at(reference.site.range.start)
+                {
+                    let generics = match self.catalog.item(declaration)? {
+                        syn::Item::Struct(item) => &item.generics,
+                        syn::Item::Enum(item) => &item.generics,
+                        _ => unreachable!("nominal owner"),
+                    };
+                    if !generics.params.is_empty() {
+                        return Err(error("implicit generic Self cannot be relocated without its original instantiation"));
+                    }
+                    return self.finish(Target::Item(Found { declaration, member: None, routes: Vec::new() }));
+                }
+                let (scope, at) = if reference.site.origin == ReferenceOrigin::Source {
+                    let at = reference.site.range.start;
+                    (self.catalog.index.scope_at(at).ok_or_else(|| error("reference has no original lexical scope"))?, at)
+                } else {
+                    let scope = self.catalog.index.scopes.iter().position(|scope| scope.kind == ScopeKind::Block && scope.range == SourceRange::of(selection.block))
+                        .map(ScopeId).ok_or_else(|| error("selected block has no original lexical scope"))?;
+                    let at = if reference.site.origin == ReferenceOrigin::Signature { selection.range.start }
+                        else { selection.statements.last().expect("nonempty selection").span().end() };
+                    (scope, at)
+                };
                 self.path(scope, &path, reference.usage, at)
             };
             resolve().map_err(|err| self.diagnostic(selection, &reference.site, &format!("`{}`: {err}", reference.path)))

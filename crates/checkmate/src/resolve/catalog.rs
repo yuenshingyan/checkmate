@@ -56,6 +56,22 @@ impl<'a> Catalog<'a> {
         })
     }
 
+    pub fn nominal_at(&self, at: LineColumn) -> Option<DeclarationId> {
+        self.items
+            .iter()
+            .enumerate()
+            .filter_map(|(id, item)| {
+                let item = (*item)?;
+                if !matches!(item, syn::Item::Struct(_) | syn::Item::Enum(_)) {
+                    return None;
+                }
+                let range = SourceRange::of(item);
+                (range.start <= at && at < range.end).then_some((range.start, DeclarationId(id)))
+            })
+            .max_by_key(|(start, _)| *start)
+            .map(|(_, id)| id)
+    }
+
     pub fn item(&self, id: DeclarationId) -> syn::Result<&'a syn::Item> {
         self.items
             .get(id.0)

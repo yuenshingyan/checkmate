@@ -47,7 +47,10 @@ corresponding to commit `2ad81e72b7e978cb800dffe1bcce5c9f98032acf` and extension
 ```
 
 The job verifies that digest **before executing** the binary, then checks the exact
-server/compiler version strings and macro-server presence. A missing or changed artifact
+server/compiler version strings and macro-server presence. This Linux asset reports
+`rust-analyzer 0.3.3081-standalone` without the commit/date suffix printed by the macOS
+build; its separately verified digest pins the artifact, rather than relying on that
+shorter version label alone. A missing or changed artifact
 fails; there is no latest-release fallback. The digest must not be replaced merely to
 make a download pass. Review upstream provenance and rerun the actual LSP tests when
 updating either half of the pair. Rustup installs the versioned compiler using its normal
@@ -71,7 +74,9 @@ running, even on failure. Ignored build artifacts are allowed. Native fixture in
 independently check inputs around compiler invocations. These are bounded integrity
 checks, not a filesystem sandbox or protection against malicious tests.
 
-Native-rustc test executables use the platform executable suffix. The non-test-emission
+Native-rustc test executables use the platform executable suffix. Dependency-marker tests
+compare parsed string-literal paths, not Rust-escaped token text (Windows backslashes
+otherwise cause a false failure). The non-test-emission
 probe uses a compiled Rust wrapper on every platform instead of a Unix shell script;
 it removes only `--test` and checks that both the extracted function and context accessor
 are absent. Windows does not silently skip that contract.

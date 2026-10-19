@@ -161,16 +161,39 @@ fn configured(root: &Path) -> syn::Result<TokenStream2> {
 fn config_paths_are_relative_to_config_and_all_files_are_tracked() {
     let root = project();
     let generated = configured(root.path()).unwrap();
-    let text = generated.to_string();
+    let file: syn::File = syn::parse2(generated).unwrap();
+    assert_eq!(file.items.len(), 4); // three dependencies and the function
+    let tracked: Vec<_> = file
+        .items
+        .iter()
+        .filter_map(|item| {
+            let syn::Item::Const(item) = item else {
+                return None;
+            };
+            let syn::Expr::Macro(expr) = item.expr.as_ref() else {
+                panic!("expected dependency macro")
+            };
+            assert!(expr.mac.path.is_ident("include_str"));
+            Some(
+                syn::parse2::<syn::LitStr>(expr.mac.tokens.clone())
+                    .unwrap()
+                    .value(),
+            )
+        })
+        .collect();
+    assert_eq!(tracked.len(), 3);
     for path in [
         "definitions/checkmate.toml",
         "definitions/source.rs",
         "definitions/snapshots/demo.rs",
     ] {
-        assert!(text.contains(root.path().join(path).to_str().unwrap()));
+        // Compare decoded paths, not their platform-dependent Rust escaping.
+        assert!(
+            tracked
+                .iter()
+                .any(|value| Path::new(value) == root.path().join(path))
+        );
     }
-    let file: syn::File = syn::parse2(generated).unwrap();
-    assert_eq!(file.items.len(), 4); // three dependencies and the function
 }
 
 #[test]

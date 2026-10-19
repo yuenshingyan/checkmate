@@ -39,7 +39,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         id: checkout
         with:
           persist-credentials: false
@@ -51,7 +51,7 @@ jobs:
       - name: Workspace regressions, including native consumers
         run: |
           mkdir -p "$RUNNER_TEMP/checkmate-logs"
-          cargo test --workspace --locked 2>&1 | tee "$RUNNER_TEMP/checkmate-logs/tests.txt"
+          cargo test --workspace --locked --no-fail-fast 2>&1 | tee "$RUNNER_TEMP/checkmate-logs/tests.txt"
           cargo run --locked -p checkmate-example
       - name: Verify repository inputs were not changed
         if: always() && steps.checkout.outcome == 'success'
@@ -60,7 +60,7 @@ jobs:
           test -z "$(git status --porcelain --untracked-files=all)"
       - name: Preserve test output
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: rust-${{ matrix.os }}-${{ matrix.toolchain }}
           path: ${{ runner.temp }}/checkmate-logs
@@ -75,7 +75,7 @@ jobs:
       RUSTUP_TOOLCHAIN: '1.99.1'
       RUSTDOCFLAGS: '-D warnings'
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         id: checkout
         with:
           persist-credentials: false
@@ -100,11 +100,11 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         id: checkout
         with:
           persist-credentials: false
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.11'
       - name: Install the pinned macro server and sources
@@ -121,7 +121,10 @@ jobs:
           printf '%s  %s\n' "$RA_SHA256" "$RUNNER_TEMP/rust-analyzer.gz" | sha256sum --check --strict
           gzip -dc "$RUNNER_TEMP/rust-analyzer.gz" > "$RUNNER_TEMP/rust-analyzer"
           chmod +x "$RUNNER_TEMP/rust-analyzer"
-          test "$("$RUNNER_TEMP/rust-analyzer" --version)" = 'rust-analyzer 0.3.3081-standalone (2ad81e72b7 2026-10-11)'
+          version="$("$RUNNER_TEMP/rust-analyzer" --version)"
+          printf '%s\n' "$version"
+          # This verified Linux asset omits the commit/date printed by the macOS build.
+          test "$version" = 'rust-analyzer 0.3.3081-standalone'
       - name: Fetch locked dependencies and check example targets
         run: cargo check --workspace --all-targets --locked
       - name: Real expansions, hovers, diagnostics, rejection, and recovery
@@ -135,7 +138,7 @@ jobs:
           test -z "$(git status --porcelain --untracked-files=all)"
       - name: Preserve editor output
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: editor-linux-pinned
           path: ${{ runner.temp }}/checkmate-logs

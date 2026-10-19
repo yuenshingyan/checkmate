@@ -32,7 +32,7 @@ requires external context at its invocation site. See the
 | [x] | [010 — Report unsupported context precisely](010-diagnostics.md) | 006, 008, 009 |
 | [x] | [011 — Integrate an opt-in automatic-context pipeline](011-pipeline.md) | 007–010 |
 | [x] | [012 — Protect discovered context with snapshots](012-context-snapshots.md) | 011 |
-| [ ] | [013 — Add end-to-end regression coverage](013-regression-tests.md) | 011, 012 |
+| [x] | [013 — Add end-to-end regression coverage](013-regression-tests.md) | 011, 012 |
 | [ ] | [014 — Document the feature and add examples](014-documentation.md) | 013 |
 
 Each task includes acceptance tests. Update its status and this checklist only when
@@ -59,12 +59,14 @@ Review/merge in this order (or compare each branch against its listed base):
 | 010 | `task/010-diagnostics` | `task/009-implementations` |
 | 011 | `task/011-pipeline` | `task/010-diagnostics` |
 | 012 | `task/012-context-snapshots` | `task/011-pipeline` |
+| 013 | `task/013-regression-tests` | `task/012-context-snapshots` |
 
 Tasks 002–010 were tested internal foundations; task 011 enables their production
 analysis path for the verified public opt-in. Historical task-specific descriptions
 record their boundaries at implementation time, not the current public feature status.
 Task 012 adds reviewed context snapshots without compilation writes.
-Next: task 013 (further integration regressions), then 014 (integrated documentation).
+Task 013 adds [native workflow regressions](../regression-tests.md).
+Next: task 014 (integrated documentation and examples).
 The [current examples](../../examples/README.md) illustrate these foundations and the
 existing public API; they do not mark task 014's integrated-feature documentation complete.
 

@@ -1,9 +1,9 @@
 # Automatic context: supported subset and safety contract
 
-**Status:** tasks 001–012 implement the public opt-in and optional context baselines. The public placement
+**Status:** tasks 001–013 implement the public opt-in, optional context baselines, and native workflow regressions. The public placement
 boundary is currently verified library roots and package integration-test roots;
-see [usage and restrictions](usage.md#automatic-context-opt-in). Tasks 013–014 cover
-further integration regressions and integrated documentation.
+see [usage and restrictions](usage.md#automatic-context-opt-in) and the
+[regression matrix](regression-tests.md). Task 014 covers integrated documentation.
 
 ## Public boundary
 

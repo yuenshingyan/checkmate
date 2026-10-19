@@ -98,6 +98,11 @@ invocation spans. The ordinary extraction path retains its original compiler tok
 - `tests/context_snapshots.rs`: explicit review, native context-only drift/recompilation,
   baseline-only edits, coexistence with snippet guards, report-name safety/test gating,
   and byte-identical build inputs.
+- `tests/public_values.rs`, `tests/public_failures.rs`, `tests/public_rebuilds.rs`:
+  eight native public-workflow groups for enum/alias/tuple returns, scoped identity,
+  dependency graphs, explicit inputs, privacy, unsupported contexts, and rebuilds.
+  `tests/support/mod.rs` checks all input bytes and unexpected file creation around
+  each build; see the [regression matrix](regression-tests.md).
 - `examples/local-types/tests/context_snapshot.rs`: public reviewed baseline and an
   explicitly invoked, read-only report printer.
 - `examples/*/tests/automatic.rs`: public automatic extraction using the existing
@@ -135,8 +140,8 @@ The [design contract](automatic-context.md) defines the supported subset. Task 0
 wires the tested AST/scope/resolver/graph/promotion stages into the public opt-in, limited
 to verified library-source and package integration-test roots. Omission preserves the
 ordinary extraction pipeline. Task 012 adds optional [context snapshots](context-snapshots.md)
-from the same validated graph used by promotion. Further regressions and integrated
-feature documentation remain [tasks 013–014](tasks/README.md).
+from the same validated graph used by promotion. Task 013 adds native integration
+regressions; integrated feature documentation remains [task 014](tasks/README.md).
 
 The lexical index distinguishes hoisted items from position-dependent locals and
 tracks type/value/macro namespaces separately. It models closure capture, item

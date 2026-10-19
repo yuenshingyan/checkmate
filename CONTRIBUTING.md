@@ -49,7 +49,13 @@ Task-009 implementation tests also compile the actual inherent-methods example s
 all copied methods and their dependencies are checked, including unused ones. Task 011
 adds public-pipeline tests in `src/automatic/tests.rs` and `tests/automatic.rs`, including
 real Cargo expansion and rebuilds. Task 012 adds context models/identities under
-`src/snapshot/` and three real-Cargo groups in `tests/context_snapshots.rs`.
+`src/snapshot/` and three real-Cargo groups in `tests/context_snapshots.rs`. Task 013
+adds eight public value/failure/rebuild groups with shared input-inventory checks;
+see the [regression matrix and oracle limitations](docs/regression-tests.md).
+
+```sh
+cargo test -p checkmate --test public_values --test public_failures --test public_rebuilds
+```
 
 ## Internal diagnostics
 

@@ -51,10 +51,13 @@ Review/merge in this order (or compare each branch against its listed base):
 | 003 | `task/003-scope-index` | `task/002-source-selection` |
 | 004 | `task/004-import-index` | `task/003-scope-index` |
 | 005 | `task/005-reference-collection` | `task/004-import-index` |
+| Current examples | `examples/context-walkthroughs` | `task/005-reference-collection` |
 
 Tasks 002–005 are tested internal foundations, deliberately test-gated until
 011 adds the public opt-in pipeline. The macro still does not accept `context = "auto"`.
 Next: task 006 (original declaration resolution), then 007 (dependency graph).
+The [current examples](../../examples/README.md) illustrate these foundations and the
+existing public API; they do not mark task 014's integrated-feature documentation complete.
 
 ## Out of scope for this milestone
 

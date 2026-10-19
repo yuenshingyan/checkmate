@@ -20,6 +20,18 @@ The rebuild integration test launches Cargo in a temporary consumer package. It
 uses offline mode and an isolated target directory, so the first run may take longer
 while compiling dependencies already downloaded by the outer workspace build.
 
+## Executable walkthroughs
+
+```sh
+cargo test -p checkmate-struct-example
+cargo test -p checkmate --lib walkthroughs -- --nocapture --test-threads=1
+```
+
+The internal walkthrough unit tests read the source and configuration in
+`examples/struct-return`; run them from a full repository checkout. They share the
+same source as the public integration tests, print their analysis, and assert the
+illustrated results. They do not enable automatic context in the public macro.
+
 ## Where changes belong
 
 - Macro implementation and tests: `crates/checkmate/`.

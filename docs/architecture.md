@@ -5,8 +5,8 @@
 ## Workspace
 
 The root `Cargo.toml` is a virtual workspace. `crates/checkmate` is the procedural
-macro package; `examples/basic` is an unpublished consumer package. One root
-`Cargo.lock` records the workspace's resolved dependencies.
+macro package; `examples/basic` and `examples/struct-return` are unpublished consumer
+packages. One root `Cargo.lock` records the workspace's resolved dependencies.
 
 The example keeps all of its own inputs together: `src/main.rs`, `src/tests.rs`,
 `checkmate.toml`, and `snapshots/add_if.rs`. Moving the example does not change its
@@ -30,6 +30,7 @@ All paths below are inside `crates/checkmate/src/`.
 | `snapshot.rs` | Compare selected source against a reviewed baseline; report first mismatch |
 | `generate.rs` | Signature parsing, inclusive line selection, snapshot validation, body parsing, token emission |
 | `tests.rs` | Unit tests for syntax, configuration, ranges, diagnostics, and snapshots |
+| `walkthroughs.rs` | Executable documentation using the struct-return example's real source/config |
 
 ## Expansion pipeline
 
@@ -62,6 +63,11 @@ captured or inferred. Ordinary rustc type, ownership, and visibility checks stil
   configuration, and snapshot changes. Its inner Cargo runs are offline and use an
   isolated target directory; the outer build supplies the needed dependency cache.
 - `examples/basic/src/tests.rs`: user-authored tests for the unmodified example source.
+- `examples/struct-return/tests/extraction.rs`: public-API tests for original struct
+  identity, tuple outputs, and ordinary method calls with explicit imports/types.
+- `src/walkthroughs.rs`: five repository-only unit tests that print and assert internal
+  analysis of the same `examples/struct-return` source/config. See the
+  [walkthrough guide](../examples/struct-return/README.md).
 
 ## Planned work boundary
 

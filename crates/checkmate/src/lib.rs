@@ -50,3 +50,5 @@ pub fn extract_fn(input: TokenStream) -> TokenStream {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod walkthroughs;

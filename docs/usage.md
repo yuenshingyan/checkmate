@@ -5,6 +5,10 @@
 Turn an unmodified range of Rust source lines into a test-only function. No markers,
 attributes, or wrappers need to be added to the original snippet.
 
+For runnable demonstrations, see the [example index](../examples/README.md) and
+[struct-return walkthrough](../examples/struct-return/README.md). The latter separately
+illustrates the public API and the internal, not-yet-enabled automatic-context analysis.
+
 The `crates/checkmate` workspace member provides the `extract_fn!` procedural macro.
 The `checkmate-example` package in `examples/basic` demonstrates its use. Add
 `checkmate` as a `dev-dependency` and invoke it inside a test module or integration

@@ -1,0 +1,12 @@
+[package]
+name = "checkmate-struct-example"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dev-dependencies]
+checkmate = { path = "../../crates/checkmate" }
+
+[lints.clippy]
+# The named bindings are intentional: they demonstrate the `output` option.
+let_and_return = "allow"

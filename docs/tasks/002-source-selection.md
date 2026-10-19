@@ -1,8 +1,15 @@
 # 002 — Parse source files and locate selected syntax
 
-- **Status:** Planned
+- **Status:** Complete
 - **Dependencies:** 001
 - **Goal:** Map the selected range to syntax and its enclosing scopes.
+
+## Result
+
+Implemented `source/ast.rs` with original-text parsing, Unicode-aware span locations,
+exact inclusive line selection, and enclosing module/function/closure/block records.
+Twelve focused tests cover the criteria below. The module is test-gated until task
+011 connects automatic mode; ordinary statement-only extraction is unchanged.
 
 ## Scope
 

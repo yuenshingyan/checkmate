@@ -22,6 +22,7 @@ All paths below are inside `crates/checkmate/src/`.
 | `arguments.rs` | Inline/config invocation syntax, duplicate/unknown option validation |
 | `config.rs` | TOML schema, named snippet lookup, package/config-relative path resolution |
 | `source.rs` | Read-only UTF-8 source IO, dependency path literals, bounded source previews |
+| `source/ast.rs` | Test-gated automatic-mode foundation: whole-file AST, exact selection, enclosing scope locations |
 | `snapshot.rs` | Compare selected source against a reviewed baseline; report first mismatch |
 | `generate.rs` | Signature parsing, inclusive line selection, snapshot validation, body parsing, token emission |
 | `tests.rs` | Unit tests for syntax, configuration, ranges, diagnostics, and snapshots |
@@ -62,6 +63,8 @@ captured or inferred. Ordinary rustc type, ownership, and visibility checks stil
 
 The [design contract](automatic-context.md) defines the opt-in syntax and safety
 boundary. The [automatic-context backlog](tasks/README.md) describes new source AST, scope,
-reference-resolution, and dependency-graph passes. Those passes are not present yet.
+reference-resolution, and dependency-graph passes. Whole-file source selection is
+implemented and unit-tested, but remains test-gated until task 011 integrates the
+opt-in pipeline. Reference/dependency resolution is not implemented yet.
 The current source/argument/generation separation provides places to add them without
 turning the public proc-macro entry point into the implementation itself.

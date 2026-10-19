@@ -5,7 +5,7 @@
 This package supplies one ordinary Rust source file for two distinct demonstrations:
 
 1. **Public API:** extract and test snippets today, with explicit imports.
-2. **Internal foundations:** inspect what tasks 004–006 can discover, without claiming
+2. **Internal foundations:** inspect what tasks 004–007 can discover, without claiming
    the public macro automatically discovers context yet.
 
 ## Source remains ordinary Rust
@@ -193,9 +193,38 @@ is the original type and inaccessible items/fields still fail. Task 011 must est
 actual invocation placement before enabling this in `extract_fn!`; the public example
 continues to import `Account` explicitly.
 
+### 7. Deterministic dependency graphs
+
+The same `build_user` analysis now produces **three unique nodes**: the original
+`User`, standard `String`, and primitive `bool`. Signature and constructor references
+to `User` share one declaration ID. Inputs and snippet-local values are not declaration
+nodes. Reused originals are terminal: their private implementation details stay in
+the original crate rather than becoming context to copy.
+
+For a recursive function-local type, a separate regression test analyzes:
+
+```rust
+struct Node {
+    next: Option<Box<Node>>,
+}
+```
+
+Run its printed walkthrough from the repository root:
+
+```sh
+cargo test -p checkmate --lib resolve::graph::tests::recursive_types_terminate -- --nocapture
+```
+
+It discovers `Node`, `Option`, and `Box` once each and retains the indirect recursive
+edge back to `Node`. Alias-expansion cycles such as `type A = Box<A>;` and direct
+layout cycles such as `struct A { next: A }` fail instead. Unsupported dependencies
+include their chain, and no partial graph is returned. This is analysis only: no
+function-local type is copied or exposed by the public macro yet.
+
 ## What is not demonstrated yet
 
-Automatic imports in `extract_fn!`, local-type promotion, complete dependency discovery,
-and `context = "auto"` are not public features yet. This walkthrough does not complete
+Automatic imports in `extract_fn!`, local-type promotion, and `context = "auto"`
+are not public features yet. Dependency discovery is internal and deliberately limited
+to the supported syntax; it is not whole-program compiler inference. This walkthrough does not complete
 [task 014](../../docs/tasks/014-documentation.md), which documents the eventual integrated
 feature. The [backlog](../../docs/tasks/README.md) tracks the remaining implementation.

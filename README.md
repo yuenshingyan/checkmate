@@ -12,8 +12,8 @@ markers, annotations, or wrappers to the original code.
 - Get source-aware extraction errors and automatic rebuilds when input files change.
 
 Users write their own tests. Automatic discovery of surrounding types/imports is
-**not publicly enabled yet**. Import and reference analysis exist as tested internal
-foundations; see the [task backlog](docs/tasks/README.md).
+**not publicly enabled yet**. Scope, declaration, and dependency analysis exist as
+tested internal foundations; see the [task backlog](docs/tasks/README.md).
 
 ## Quick start
 
@@ -56,7 +56,7 @@ path resolution, and current limitations.
 ## More examples
 
 See the [example index](examples/README.md) for a struct-returning extraction,
-tuple outputs, and printed walkthroughs of the internal import/reference analyzer.
+tuple outputs, and printed walkthroughs of the internal declaration/dependency analyzer.
 
 ```sh
 cargo test -p checkmate-struct-example

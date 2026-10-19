@@ -634,4 +634,4 @@ fn prelude(name: &str, usage: ReferenceUse) -> Option<QualifiedPath> {
 }
 
 #[cfg(test)]
-mod tests;
+pub(super) mod tests;

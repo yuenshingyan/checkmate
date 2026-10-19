@@ -69,9 +69,8 @@ impl Fixture {
         )
     }
 
-    fn consumer(&self, imports: &str, body: &str) -> Output {
-        let lib = self.temp.path().join("libsource_model.rlib");
-        let output = rustc()
+    pub fn compile_original(&self) -> Output {
+        rustc()
             .args([
                 "--edition=2024",
                 "--crate-type=lib",
@@ -79,9 +78,14 @@ impl Fixture {
             ])
             .arg(self.temp.path().join("src/lib.rs"))
             .arg("-o")
-            .arg(&lib)
+            .arg(self.temp.path().join("libsource_model.rlib"))
             .output()
-            .unwrap();
+            .unwrap()
+    }
+
+    fn consumer(&self, imports: &str, body: &str) -> Output {
+        let lib = self.temp.path().join("libsource_model.rlib");
+        let output = self.compile_original();
         assert!(
             output.status.success(),
             "{}",

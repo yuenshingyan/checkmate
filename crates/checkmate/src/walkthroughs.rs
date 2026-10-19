@@ -60,6 +60,43 @@ impl Example {
 }
 
 #[test]
+fn dependency_graph_deduplicates_reused_originals() {
+    use crate::resolve::declarations::{Resolver, ReuseSite};
+    use crate::resolve::graph::{Graph, NodeKind};
+    let example = Example::load("build_user");
+    let origin = SourceOrigin::discover(&example.root, &example.source.path).unwrap();
+    let resolver = Resolver::new(
+        &example.source,
+        &example.index,
+        &origin,
+        ReuseSite::PackageIntegrationTest,
+    )
+    .unwrap();
+    let selection = example
+        .source
+        .select(
+            example.args.start.base10_parse().unwrap(),
+            example.args.end.base10_parse().unwrap(),
+        )
+        .unwrap();
+    let graph = Graph::build(&resolver, &example.configured_analysis(), &selection).unwrap();
+    assert_eq!(graph.nodes.len(), 3); // User, String, bool; body inputs/locals are not declaration nodes.
+    assert_eq!(
+        graph
+            .nodes
+            .values()
+            .filter(|node| matches!(node.kind, NodeKind::Original(_)))
+            .count(),
+        1
+    );
+    assert!(graph.nodes.values().all(|node| node.edges.is_empty()));
+    println!("Graph: 3 unique declaration paths (User, String, bool).");
+    println!(
+        "User is reused once; its private implementation dependencies are not inspected or copied."
+    );
+}
+
+#[test]
 fn original_declarations_generate_identity_preserving_imports() {
     use crate::resolve::declarations::{Resolved, Resolver, ReuseSite};
     let example = Example::load("build_user");

@@ -28,6 +28,7 @@ All paths below are inside `crates/checkmate/src/`.
 | `source/origin.rs` | Test-gated source-to-library/binary-root identity from the package manifest |
 | `resolve.rs`, `resolve/collect.rs` | Test-gated reference/input collection across snippet, supplied signature, and output |
 | `resolve/catalog.rs`, `resolve/declarations.rs` | Test-gated original-item identities, namespace-aware reusable paths/imports, local-type IDs, conservative access checks |
+| `resolve/graph.rs`, `resolve/graph/collect.rs` | Test-gated deterministic transitive dependencies, recursive type/alias validation, dependency-chain errors |
 | `snapshot.rs` | Compare selected source against a reviewed baseline; report first mismatch |
 | `generate.rs` | Signature parsing, inclusive line selection, snapshot validation, body parsing, token emission |
 | `tests.rs` | Unit tests for syntax, configuration, ranges, diagnostics, and snapshots |
@@ -68,7 +69,9 @@ captured or inferred. Ordinary rustc type, ownership, and visibility checks stil
   identity, tuple outputs, and ordinary method calls with explicit imports/types.
 - `src/resolve/declarations/tests.rs`: real rustc consumers verifying generated imports,
   original type identity, and item/field privacy failures without source modification.
-- `src/walkthroughs.rs`: six repository-only unit tests that print and assert internal
+- `src/resolve/graph/tests.rs`: shared/transitive dependencies, stable ordering,
+  recursive relationships, unsupported chains, and compiler-backed recursion checks.
+- `src/walkthroughs.rs`: seven repository-only unit tests that print and assert internal
   analysis of the same `examples/struct-return` source/config. See the
   [walkthrough guide](../examples/struct-return/README.md).
 
@@ -78,8 +81,9 @@ The [design contract](automatic-context.md) defines the opt-in syntax and safety
 boundary. The [automatic-context backlog](tasks/README.md) describes new source AST, scope,
 reference-resolution, and dependency-graph passes. Whole-file source selection and
 lexical scope/import indexing, source-root mapping, reference collection, and original
-declaration resolution are implemented and tested, but remain test-gated until task
-011 integrates the opt-in pipeline. Dependency graphs are not implemented yet.
+declaration resolution and dependency graphs are implemented and tested, but remain
+test-gated until task 011 integrates the opt-in pipeline. Local-type promotion and
+implementation analysis are not implemented yet.
 
 The lexical index distinguishes hoisted items from position-dependent locals and
 tracks type/value/macro namespaces separately. It models closure capture, item
@@ -122,6 +126,22 @@ No other prelude name is guessed. External types in the same target remain symbo
 Rust-checked paths. Nonstandard cross-target dependency aliases do not prove type
 identity and are rejected, as are external values and unresolved trait/associated
 operations. A successful reference plan cannot silently drop pending method analysis.
+
+The dependency graph expands only function-local struct/enum/alias context. Reused
+originals and external paths are terminals: their private implementation dependencies
+are not requirements to copy. Source declaration IDs and external qualified paths
+provide deterministic keys; maps/sets deduplicate nodes and retain individual source
+reference sites for later renaming. Stable ID order is an emission order, not a claim
+that recursive relationships form a DAG.
+
+Iterative discovery terminates even with recursive types. Separate visiting/visited
+passes over the complete graph check alias expansion and unguarded layout cycles.
+Pointer/function-pointer and known standard container indirection is tracked; opaque
+wrapper layouts are not guessed. Type/where constraints are distinguished from layout
+edges and alias-RHS references. Bounds, fields, aliases, and simple original-constant
+expressions are analyzed without evaluating helpers or initializers. Graph failures
+include a root-to-dependency chain and discard the entire plan. Promotion and
+implementation policy must still approve a graph before task 011 can emit anything.
 
 The current source/argument/generation separation provides places to add them without
 turning the public proc-macro entry point into the implementation itself.

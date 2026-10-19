@@ -48,7 +48,8 @@ rustc. They verify runtime behavior and identity differences, not merely token s
 Task-009 implementation tests also compile the actual inherent-methods example source;
 all copied methods and their dependencies are checked, including unused ones. Task 011
 adds public-pipeline tests in `src/automatic/tests.rs` and `tests/automatic.rs`, including
-real Cargo expansion and rebuilds.
+real Cargo expansion and rebuilds. Task 012 adds context models/identities under
+`src/snapshot/` and three real-Cargo groups in `tests/context_snapshots.rs`.
 
 ## Internal diagnostics
 
@@ -91,3 +92,16 @@ Snapshots are reviewed source baselines, not generated build artifacts. If a sel
 moves, correct its line range. If source content intentionally changes, review and
 explicitly update the associated snapshot. Never add automatic writes to compilation.
 Commit relevant source/config/snapshot changes together.
+
+[Context snapshots](docs/context-snapshots.md) are versioned logical models, not emitted
+helper names or traversal IDs. Keep review data separate from filesystem writes. The
+`context_report` accessor returns a literal, not a named constant that could capture
+Rust binding patterns. Test identifier conflicts, unknown caller-module scopes, schema
+failures, unrelated edits/moves, and baseline-only incremental rebuilds. Original nodes
+remain terminals; do not claim to fingerprint unexpanded private dependencies.
+
+```sh
+cargo test -p checkmate --lib snapshot::
+cargo test -p checkmate --test context_snapshots
+cargo test -p checkmate-local-example --test context_snapshot print_context_for_review -- --ignored --nocapture
+```

@@ -25,7 +25,7 @@ use crate::source::ast::{Selection, SourceRange};
 
 pub(crate) struct PromotionPlan {
     pub items: Vec<syn::Item>,
-    // Retained for inspection and the context-snapshot task.
+    // Retained for inspection; snapshots deliberately do not persist these names.
     #[cfg_attr(not(test), allow(dead_code))]
     pub names: BTreeMap<NodeId, syn::Ident>,
     // Explicit disclosure, not a claim of interoperability with original locals.
@@ -34,6 +34,7 @@ pub(crate) struct PromotionPlan {
 }
 
 impl PromotionPlan {
+    #[cfg(test)]
     pub fn build(
         resolver: &Resolver<'_>,
         references: &References,
@@ -41,6 +42,16 @@ impl PromotionPlan {
         occupied: &BTreeSet<String>,
     ) -> Result<Self> {
         let graph = Graph::build(resolver, references, selection)?;
+        Self::from_graph(resolver, references, selection, occupied, &graph)
+    }
+
+    pub fn from_graph(
+        resolver: &Resolver<'_>,
+        references: &References,
+        selection: &Selection<'_>,
+        occupied: &BTreeSet<String>,
+        graph: &Graph,
+    ) -> Result<Self> {
         let [syn::Item::Fn(function)] = references.generated.file.items.as_slice() else {
             return Err(error(
                 "promotion requires the collected single-function analysis shell",

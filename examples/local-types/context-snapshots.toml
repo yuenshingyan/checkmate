@@ -1,0 +1,11 @@
+# Source and the existing snippet baseline remain unchanged.
+[snippets.snapshot_user]
+fn_sig = "fn snapshot_user(name: String, active: bool) -> User"
+module = "src/lib.rs"
+start = 6
+end = 9
+output = "user"
+snapshot = "snapshots/user.rs"
+context = "auto"
+context_report = "user_context"
+context_snapshot = "snapshots/user.context.toml"

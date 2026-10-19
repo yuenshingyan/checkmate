@@ -68,6 +68,25 @@ names are internal details, not a stable public naming API.
 Task 009 adds a separate [inherent-methods walkthrough](../inherent-methods/README.md)
 for the conservative supported implementation subset.
 
+## Reviewed context baseline
+
+Task 012 adds [`context-snapshots.toml`](context-snapshots.toml),
+[`tests/context_snapshot.rs`](tests/context_snapshot.rs), and the reviewed
+[`snapshots/user.context.toml`](snapshots/user.context.toml). They reuse the unchanged
+source and snippet baseline above. The new guard records `User`'s declaration and
+resolved dependencies, explicitly labeled as a copied struct with new nominal identity.
+
+```sh
+cargo test -p checkmate-local-example --test context_snapshot
+cargo test -p checkmate-local-example --test context_snapshot print_context_for_review -- --ignored --nocapture
+```
+
+The first checks the reviewed context and returned fields. The second prints the model
+through the generated `user_context()` accessor; neither command writes a baseline.
+For an intentional update, explicitly omit `context_snapshot`, inspect/copy the new
+TOML, then restore the guard. Missing/mismatching baselines fail rather than auto-update.
+See the [review workflow and format limits](../../docs/context-snapshots.md).
+
 See [task 008](../../docs/tasks/008-local-types.md), the
 [safety contract](../../docs/automatic-context.md), and
 [coverage/property checks](../../docs/coverage.md).

@@ -28,6 +28,36 @@ pub(crate) struct Args {
     pub end: LitInt,
     pub output: Option<Expr>,
     pub snapshot: Option<LitStr>,
+    pub context_snapshot: Option<LitStr>,
+    /// Requested test-only review accessor identifier, not a path or write option.
+    pub context_report: Option<LitStr>,
+}
+
+impl Args {
+    pub(crate) fn validate_context_options(&self) -> syn::Result<()> {
+        for (name, value) in [
+            ("context_snapshot", &self.context_snapshot),
+            ("context_report", &self.context_report),
+        ] {
+            if let Some(value) = value
+                && self.context != Context::Auto
+            {
+                return Err(syn::Error::new(
+                    value.span(),
+                    format!("{name} requires context = \"auto\""),
+                ));
+            }
+        }
+        if let Some(value) = &self.context_report
+            && !value.parse::<Ident>().is_ok_and(|name| name != "_")
+        {
+            return Err(syn::Error::new(
+                value.span(),
+                "context_report must be one Rust identifier other than `_`",
+            ));
+        }
+        Ok(())
+    }
 }
 
 pub(crate) enum Invocation {
@@ -52,6 +82,8 @@ impl Parse for Invocation {
         let mut end = None;
         let mut output = None;
         let mut snapshot = None;
+        let mut context_snapshot = None;
+        let mut context_report = None;
         let mut context = None;
         let mut config = None;
         let mut snippet = None;
@@ -66,6 +98,8 @@ impl Parse for Invocation {
                 "end" => set_once(&mut end, input.parse()?, &key)?,
                 "output" => set_once(&mut output, input.parse()?, &key)?,
                 "snapshot" => set_once(&mut snapshot, input.parse()?, &key)?,
+                "context_snapshot" => set_once(&mut context_snapshot, input.parse()?, &key)?,
+                "context_report" => set_once(&mut context_report, input.parse()?, &key)?,
                 "context" => {
                     let value: LitStr = input.parse()?;
                     let mode = Context::parse(&value.value())
@@ -77,7 +111,7 @@ impl Parse for Invocation {
                 _ => {
                     return Err(syn::Error::new(
                         key.span(),
-                        "unknown option; expected fn_sig, module, start, end, output, snapshot, context, config, or snippet",
+                        "unknown option; expected fn_sig, module, start, end, output, snapshot, context_snapshot, context_report, context, config, or snippet",
                     ));
                 }
             }
@@ -93,6 +127,8 @@ impl Parse for Invocation {
                 || end.is_some()
                 || output.is_some()
                 || snapshot.is_some()
+                || context_snapshot.is_some()
+                || context_report.is_some()
                 || context.is_some()
             {
                 return Err(input.error("config/snippet cannot be mixed with inline options"));
@@ -102,15 +138,19 @@ impl Parse for Invocation {
                 snippet: snippet.ok_or_else(|| input.error("missing snippet"))?,
             });
         }
-        Ok(Self::Inline(Box::new(Args {
+        let args = Args {
             fn_sig: fn_sig.ok_or_else(|| input.error("missing fn_sig"))?,
             module: module.ok_or_else(|| input.error("missing module"))?,
             start: start.ok_or_else(|| input.error("missing start"))?,
             end: end.ok_or_else(|| input.error("missing end"))?,
             output,
             snapshot,
+            context_snapshot,
+            context_report,
             context: context.unwrap_or_default(),
-        })))
+        };
+        args.validate_context_options()?;
+        Ok(Self::Inline(Box::new(args)))
     }
 }
 

@@ -64,18 +64,7 @@ impl Fixture {
         }
     }
     fn input(&self) -> Input {
-        Input {
-            package: self.root().into(),
-            source: self.path("src/lib.rs"),
-            config: None,
-            snapshot: None,
-            snippet: "task011-unit".into(),
-            signature: "fn extracted() -> i32".into(),
-            output: Some("answer".into()),
-            start: 2,
-            end: 2,
-            caller: self.caller("tests/probe.rs", "probe"),
-        }
+        self.input_for(self.caller("tests/probe.rs", "probe"))
     }
     fn verify(&self, caller: &Caller) -> crate::diagnostics::Result<placement::Placement> {
         let origin = SourceOrigin::discover(self.root(), &self.path("src/lib.rs")).unwrap();
@@ -215,6 +204,8 @@ impl Fixture {
             source: self.path("src/lib.rs"),
             config: None,
             snapshot: None,
+            context_snapshot: None,
+            context_report: None,
             snippet: "task011-unit".into(),
             signature: "fn extracted() -> i32".into(),
             output: Some("answer".into()),

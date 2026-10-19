@@ -41,6 +41,8 @@ impl Caller {
 }
 pub(super) struct Placement {
     pub occupied: BTreeSet<String>,
+    pub root_bindings: BTreeSet<String>,
+    pub pattern_bindings: BTreeSet<String>,
     pub caller: PathBuf,
 }
 fn fail(message: &str) -> Error {
@@ -184,6 +186,16 @@ pub(super) fn verify(
         }
     }
     Names(&mut occupied).visit_file(&syntax);
+    let mut pattern_bindings = BTreeSet::new();
+    struct Patterns<'a>(&'a mut BTreeSet<String>);
+    impl<'ast> Visit<'ast> for Patterns<'_> {
+        fn visit_pat_ident(&mut self, pattern: &'ast syn::PatIdent) {
+            self.0
+                .insert(pattern.ident.to_string().trim_start_matches("r#").into());
+            syn::visit::visit_pat_ident(self, pattern);
+        }
+    }
+    Patterns(&mut pattern_bindings).visit_file(&syntax);
     let aliases = macro_aliases(&manifest);
     let mut found = false;
     let mut root_bindings = BTreeSet::new();
@@ -260,7 +272,7 @@ pub(super) fn verify(
     impl<'ast> Visit<'ast> for Attributes {
         fn visit_attribute(&mut self, attr: &'ast syn::Attribute) {
             if ![
-                "test", "cfg", "doc", "allow", "warn", "deny", "forbid", "expect",
+                "test", "ignore", "cfg", "doc", "allow", "warn", "deny", "forbid", "expect",
             ]
             .iter()
             .any(|name| attr.path().is_ident(name))
@@ -291,6 +303,8 @@ pub(super) fn verify(
     }
     Ok(Placement {
         occupied,
+        root_bindings,
+        pattern_bindings,
         caller: file,
     })
 }

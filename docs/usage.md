@@ -54,6 +54,11 @@ under a package's `tests/` directory are already test-only.
   relative to the invoking package's `Cargo.toml`. A mismatch fails compilation.
 - `context` (optional): only `"auto"` is accepted. Omission keeps ordinary extraction.
   See the placement and supported-context restrictions below.
+- `context_snapshot` (optional, automatic mode only): path to a reviewed, versioned
+  context baseline. Like `snapshot`, inline paths are package-relative.
+- `context_report` (optional, automatic mode only): a Rust identifier in a string,
+  naming a test-only accessor returning the full TOML model for explicit inspection.
+  Prefer a distinct snake_case name; see [context snapshots](context-snapshots.md).
 
 The example generates the equivalent of:
 
@@ -99,13 +104,13 @@ extract_fn!(config = "checkmate.toml", snippet = "add_if");
 ```
 
 Each `[snippets.NAME]` defines one extraction; a file can contain multiple definitions.
-`output` is a Rust expression **inside a TOML string**. `output`, `snapshot`, and
-`context` are optional. Set `context = "auto"` in the definition, not alongside
+`output` is a Rust expression **inside a TOML string**. `output`, `snapshot`,
+`context`, `context_snapshot`, and `context_report` are optional. Set `context = "auto"` in the definition, not alongside
 `config`/`snippet` in the invocation. Unknown keys, missing required fields, and missing snippet names are errors.
 Do not mix `config`/`snippet` with inline options.
 
 The `config` path is relative to the invoking package's `Cargo.toml`. Paths **inside
-that file** (`module` and `snapshot`) are relative to the configuration file's own
+that file** (`module`, `snapshot`, and `context_snapshot`) are relative to the configuration file's own
 directory, so definitions can live in a subdirectory. See
 [`examples/basic/checkmate.toml`](../examples/basic/checkmate.toml) and
 [`examples/basic/src/tests.rs`](../examples/basic/src/tests.rs) for a working example.
@@ -171,9 +176,12 @@ an actual invocation span. Compiler type/borrow/privacy errors are not remapped.
 Source, caller, Cargo manifest, configuration, and optional snapshot contents read by
 analysis are tracked through dependency markers. No input file is modified.
 
-**Snapshot limit:** existing snapshots guard selected lines only, not discovered
-context, mappings, signature, or output. Context changes trigger analysis/recompilation
-but are not a reviewed context baseline until [task 012](tasks/012-context-snapshots.md).
+Existing `snapshot` guards still protect selected source text only. Add
+`context_snapshot` to review the discovered declarations/dependency mappings and the
+normalized signature/body/output. `context_report` supplies a read-only accessor for
+explicit inspection and manual baseline creation. See the
+[format, workflow, and terminal-graph limits](context-snapshots.md); a matching baseline
+is not proof of whole-program semantic equivalence.
 
 ## Detecting line drift with snapshots
 

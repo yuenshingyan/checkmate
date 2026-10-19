@@ -19,6 +19,7 @@ pub(crate) enum TargetKind {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct SourceOrigin {
     pub package_root: PathBuf,
+    pub package_name: String,
     pub manifest: PathBuf,
     pub source: PathBuf,
     pub target_kind: TargetKind,
@@ -211,6 +212,7 @@ impl SourceOrigin {
         extern_candidates.extend(["std".into(), "core".into()]);
         Ok(Self {
             package_root,
+            package_name: name.to_owned(),
             manifest,
             source,
             target_kind,

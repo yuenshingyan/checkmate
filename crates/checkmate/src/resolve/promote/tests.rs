@@ -54,7 +54,10 @@ fn compile(f: &Fixture, plans: &[&PromotionPlan], body: &str, test: bool) -> std
         .join("\n");
     let file = f.temp.path().join("promoted.rs");
     fs::write(&file, format!("{code}\nfn main() {{ {body} }}")).unwrap();
-    let executable = f.temp.path().join("promoted");
+    let executable = f
+        .temp
+        .path()
+        .join(format!("promoted{}", std::env::consts::EXE_SUFFIX));
     let mut rustc = Command::new(std::env::var_os("RUSTC").unwrap_or_else(|| "rustc".into()));
     rustc
         .arg("--edition=2024")

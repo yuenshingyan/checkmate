@@ -20,6 +20,18 @@ The rebuild integration test launches Cargo in a temporary consumer package. It
 uses offline mode and an isolated target directory, so the first run may take longer
 while compiling dependencies already downloaded by the outer workspace build.
 
+## CI and compiler compatibility
+
+See [CI and compatibility checks](docs/ci.md) for the Rust 1.88.0/1.99.1
+Linux/macOS/Windows matrix, moving-stable check, pinned editor regression, and the
+`CI required` aggregate. A workflow is not itself branch protection; the guide describes
+the separate repository setting needed to require it.
+
+Use `RUSTUP_TOOLCHAIN=1.88.0 cargo test --workspace --locked` to reproduce the MSRV
+job, so temporary Cargo/rustc consumers inherit the compiler selection too. Tests must
+not depend on the global default or silently skip platform-independent contracts on
+Windows. Preserve the LF checkout policy and use platform executable suffixes in helpers.
+
 ## Executable walkthroughs
 
 ```sh
@@ -52,8 +64,9 @@ python3 scripts/test_rust_analyzer.py /path/to/rust-analyzer
 cargo test -p checkmate --test caller_spans
 ```
 
-Editor tests are opt-in because rust-analyzer/Python are external tools, not Cargo test
-dependencies. The harness must observe real expansions/types and a failing negative
+Editor tests remain separate from Cargo because rust-analyzer/Python are external tools,
+not Cargo test dependencies. CI provisions a verified pinned Linux binary and runs the
+harness as a required prerequisite of the aggregate; local execution is explicit. The harness must observe real expansions/types and a failing negative
 control; suppressing `macro-error` or merely passing Cargo is not an editor regression test.
 
 ## Coverage and generated properties

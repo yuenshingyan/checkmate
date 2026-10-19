@@ -6,11 +6,78 @@ use std::{
     process::Command,
 };
 
-struct TempCargo(tempfile::TempDir);
+struct TempCargo(tempfile::TempDir, Option<PathBuf>);
+
+fn compile_native(dir: &Path, name: &str, source: &str) -> PathBuf {
+    let input = dir.join(format!("{name}.rs"));
+    let executable = dir.join(format!("{name}{}", std::env::consts::EXE_SUFFIX));
+    fs::write(&input, source).unwrap();
+    // Inherit RUSTUP_TOOLCHAIN when rustc is a rustup proxy.
+    let output = Command::new(std::env::var_os("RUSTC").unwrap_or_else(|| "rustc".into()))
+        .arg("--edition=2024")
+        .arg(&input)
+        .arg("-o")
+        .arg(&executable)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    executable
+}
+
+fn compile_wrapper(dir: &Path) -> PathBuf {
+    compile_native(dir, "without_test", include_str!("support/without_test.rs"))
+}
+
+#[test]
+fn native_wrapper_filters_only_exact_test_and_preserves_arguments_and_status() {
+    let dir = tempfile::tempdir().unwrap();
+    let wrapper = compile_wrapper(dir.path());
+    let compiler = compile_native(
+        dir.path(),
+        "fake_compiler",
+        r#"
+fn main() {
+    let mut args = std::env::args_os().skip(1);
+    let code: i32 = args.next().unwrap().to_str().unwrap().parse().unwrap();
+    let expected = ["", "argument with spaces", "quotes\"and\\slashes", "--test=keep", "--cfg", "test", "日本語"];
+    assert_eq!(args.collect::<Vec<_>>(), expected.map(std::ffi::OsString::from));
+    std::process::exit(code);
+}
+"#,
+    );
+    for code in [0, 23] {
+        let output = Command::new(&wrapper)
+            .arg(&compiler)
+            .arg(code.to_string())
+            .args([
+                "--test",
+                "",
+                "argument with spaces",
+                "quotes\"and\\slashes",
+                "--test=keep",
+                "--cfg",
+                "test",
+                "日本語",
+                "--test",
+            ])
+            .output()
+            .unwrap();
+        assert_eq!(
+            output.status.code(),
+            Some(code),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}
 
 impl TempCargo {
     fn new() -> Self {
-        let c = Self(tempfile::tempdir().unwrap());
+        let c = Self(tempfile::tempdir().unwrap(), None);
         c.write("Cargo.toml", &format!("[package]\nname = \"context-consumer\"\nversion = \"0.0.0\"\nedition = \"2024\"\n[workspace]\n[dev-dependencies]\ncheckmate = {{ path = {:?} }}\n", env!("CARGO_MANIFEST_DIR")));
         c.write("src/lib.rs", SOURCE);
         c
@@ -45,8 +112,8 @@ impl TempCargo {
         let mut before = BTreeMap::new();
         collect(self.0.path(), &mut before);
         let mut command = Command::new(env!("CARGO"));
-        if self.path("without-test.sh").exists() {
-            command.env("RUSTC_WRAPPER", self.path("without-test.sh"));
+        if let Some(wrapper) = &self.1 {
+            command.env("RUSTC_WRAPPER", wrapper);
         }
         let output = command
             .args(args)
@@ -225,7 +292,7 @@ fn config_relative_guards_coexist_and_detect_unselected_context_changes() {
 
 #[test]
 fn report_names_auto_only_options_and_test_only_visibility() {
-    let c = TempCargo::new();
+    let mut c = TempCargo::new();
     for (name, prefix) in [
         ("CONTEXT", "const CONTEXT: &str = \"occupied\";\n"),
         ("extracted", ""),
@@ -302,11 +369,11 @@ fn report_names_auto_only_options_and_test_only_visibility() {
     c.check(&[]);
     // Preserve Cargo integration-target identity but remove rustc's --test.
     // harness=false is insufficient: Cargo supplies --cfg test in that case.
-    #[cfg(unix)]
+    // Build before run() inventories compiler inputs, in a separate directory
+    // so wrapper binaries and linker artifacts are not captured as inputs.
+    let wrapper_dir = tempfile::tempdir().unwrap();
+    c.1 = Some(compile_wrapper(wrapper_dir.path()));
     {
-        use std::os::unix::fs::PermissionsExt;
-        c.write("without-test.sh", "#!/bin/bash\nargs=()\nfor arg in \"$@\"; do\n  if [[ \"$arg\" != --test ]]; then args+=(\"$arg\"); fi\ndone\nexec \"${args[@]}\"\n");
-        fs::set_permissions(c.path("without-test.sh"), fs::Permissions::from_mode(0o755)).unwrap();
         c.write(
             "tests/probe.rs",
             &format!("{}fn main() {{}}\n", inline("context_report = \"CONTEXT\"")),

@@ -40,9 +40,14 @@ snapshot = "demo.rs"
 
 #[test]
 fn inline_and_toml_context_parity_and_snippet_identity() {
-    assert_eq!(Context::default(), Context::Explicit);
+    assert_eq!(Context::default(), Context::Auto);
     for (inline_option, toml_option, expected) in [
-        (quote! {}, "", Context::Explicit),
+        (quote! {}, "", Context::Auto),
+        (
+            quote! { context = "explicit" },
+            "context = \"explicit\"",
+            Context::Explicit,
+        ),
         (
             quote! { context = "auto" },
             "context = \"auto\"",
@@ -129,13 +134,16 @@ fn context_baseline_options_require_auto() {
         let key = syn::Ident::new(name, proc_macro2::Span::call_site());
         let expected = format!("{name} requires context = \"auto\"");
         assert!(
-            inline(quote! { #key = "BASELINE" })
+            inline(quote! { context = "explicit", #key = "BASELINE" })
                 .err()
                 .unwrap()
                 .to_string()
                 .contains(&expected)
         );
-        let error = configured(&format!("{name} = \"BASELINE\""))
+        // Omission is automatic and accepts both context-only options.
+        assert!(inline(quote! { #key = "BASELINE" }).is_ok());
+        assert!(configured(&format!("{name} = \"BASELINE\"")).is_ok());
+        let error = configured(&format!("context = \"explicit\"\n{name} = \"BASELINE\""))
             .err()
             .unwrap()
             .to_string();
@@ -238,8 +246,8 @@ fn toml_context_options_validate_selected_definition() {
     let other =
         "\n[snippets.other]\nfn_sig = \"fn other()\"\nmodule = \"other.rs\"\nstart = 1\nend = 2\n";
     for options in [
-        "context_snapshot = \"baseline.json\"",
-        "context_report = \"BASELINE\"",
+        "context = \"explicit\"\ncontext_snapshot = \"baseline.json\"",
+        "context = \"explicit\"\ncontext_report = \"BASELINE\"",
         "context = \"auto\"\ncontext_report = \"not an identifier\"",
     ] {
         assert!(configured(&format!("{other}{options}")).is_ok());
@@ -257,7 +265,17 @@ fn toml_context_options_validate_selected_definition() {
 
 #[test]
 fn invalid_context_strings_fail_in_both_forms() {
-    for value in ["", "explicit", "Auto", "AUTO", " auto", "auto ", "unknown"] {
+    for value in [
+        "",
+        "Explicit",
+        "explicit ",
+        " explicit",
+        "Auto",
+        "AUTO",
+        " auto",
+        "auto ",
+        "unknown",
+    ] {
         let error = inline(quote! { context = #value }).err().unwrap();
         assert!(error.to_string().contains("invalid context"));
         let error = configured(&format!("context = {value:?}")).err().unwrap();
@@ -284,14 +302,21 @@ fn nonstring_context_fails_in_both_forms() {
 
 #[test]
 fn duplicate_context_fails_in_both_forms() {
-    let error = inline(quote! { context = "auto", context = "auto" })
-        .err()
-        .unwrap();
-    assert!(error.to_string().contains("duplicate option `context`"));
-    let error = configured("context = \"auto\"\ncontext = \"auto\"")
-        .err()
-        .unwrap();
-    assert!(error.to_string().contains("duplicate"));
+    for (first, second) in [
+        ("auto", "auto"),
+        ("explicit", "explicit"),
+        ("auto", "explicit"),
+        ("explicit", "auto"),
+    ] {
+        let error = inline(quote! { context = #first, context = #second })
+            .err()
+            .unwrap();
+        assert!(error.to_string().contains("duplicate option `context`"));
+        let error = configured(&format!("context = {first:?}\ncontext = {second:?}"))
+            .err()
+            .unwrap();
+        assert!(error.to_string().contains("duplicate"));
+    }
 }
 
 #[test]

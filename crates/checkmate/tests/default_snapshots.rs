@@ -7,7 +7,11 @@ const LINE: &str = "let value = n + 1;\n";
 const SOURCE: &str = "pub fn original(n: u8) -> u8 {\nlet value = n + 1;\nvalue\n}\n";
 
 fn inline(name: &str, auto: bool, options: &str) -> String {
-    let context = if auto { "context = \"auto\"," } else { "" };
+    let context = if auto {
+        "context = \"auto\","
+    } else {
+        "context = \"explicit\","
+    };
     format!(
         "checkmate::extract_fn! {{ fn_sig = \"fn {name}(n: u8) -> u8\", module = \"src/lib.rs\", start = 2, end = 2, output = value, {context} {options} }}\n"
     )
@@ -86,7 +90,11 @@ fn inline_defaults_raw_identifiers_overrides_and_incremental_guards() {
 }
 
 fn config(auto: bool, options: &str) -> String {
-    let context = if auto { "context = \"auto\"\n" } else { "" };
+    let context = if auto {
+        "context = \"auto\"\n"
+    } else {
+        "context = \"explicit\"\n"
+    };
     format!(
         "[snippets.named_definition]\nfn_sig = \"fn r#type(n: u8) -> u8\"\nmodule = \"../src/lib.rs\"\nstart = 2\nend = 2\noutput = \"value\"\n{context}{options}\n"
     )

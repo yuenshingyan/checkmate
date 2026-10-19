@@ -9,9 +9,18 @@ Rust/compiler inference or a merge into `master`.
 
 ## Public boundary
 
-The opt-in is `context = "auto"`, accepted both inline and as a string in a
-TOML snippet definition. Omission keeps today's extraction behavior. No other
-context value is initially accepted. Do not mix inline fields into a config invocation.
+Omitted `context` defaults to automatic discovery; explicit `context = "auto"`
+remains valid inline or in a TOML snippet definition. `context = "explicit"` selects
+ordinary extraction. No other value is accepted. Do not mix inline fields into a
+config invocation: set the mode in its TOML definition.
+
+Both automatic forms require a verified library root and a literal qualified call at
+a verified package integration-test root. Failure never falls back to ordinary mode.
+Bare imported macro names, binary sources, and unit-test ordinary usage require
+`context = "explicit"`. Migrate extraction metadata/tests/configurations, not selected
+production snippets, source macro definitions, or reviewed snapshot contents; no
+annotations are needed. See [migration](usage.md#migration-to-automatic-by-default).
+Historical task records retain the implementation history, not current default rules.
 
 ```rust,ignore
 // At the root of a verified Cargo integration test.
@@ -147,7 +156,9 @@ missing/mismatching guards never fall back or automatically move ranges.
 See [migration from unchecked omission](usage.md#migration-from-unchecked-omission).
 
 The separate [versioned context baseline](context-snapshots.md) remains optional,
-automatic-only, and has no default. Context-only guarding requires `snapshot = false`.
+automatic-only, and has no default. Both `context_snapshot` and `context_report` are
+valid when `context` is omitted and rejected with `context = "explicit"`.
+Context-only guarding requires `snapshot = false`.
 Existing explicit snippet paths remain valid. Discovered declaration contents and dependency
 mappings use logical identities rather than checkout paths or transient IDs. Ambiguous
 anchors fail instead of guessing. A test-only accessor provides review data; compilation

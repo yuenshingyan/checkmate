@@ -1,4 +1,4 @@
-//! Opt-in orchestration. File analysis uses the fallback parser, whose spans
+//! Automatic-context orchestration. File analysis uses the fallback parser, whose spans
 //! refer to the parsed text rather than the compiler invocation. The macro entry
 //! serializes expansion while this process-global backend switch is active.
 mod placement;

@@ -9,7 +9,6 @@ checkmate::extract_fn! {
     end = 11,
     output = (invoice.total, invoice.items),
     snapshot = "snapshots/invoice.rs",
-    context = "auto",
 }
 
 #[test]

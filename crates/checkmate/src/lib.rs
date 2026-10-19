@@ -24,12 +24,19 @@ use syn::parse_macro_input;
 
 /// Extract a source range into a function available only under `cfg(test)`.
 ///
-/// Omit `context` for ordinary extraction and supply required context in the test
-/// scope. Opt into `context = "auto"` to discover supported declarations from a
-/// verified library root, using a literal fully qualified invocation at a package
+/// Omitted `context` defaults to automatic discovery; `context = "auto"` remains valid.
+/// Set `context = "explicit"` for ordinary extraction and supply required context in
+/// the test scope. Automatic discovery requires a verified library root and a literal
+/// fully qualified invocation at a package
 /// integration-test crate root (Rust 1.88+ and Cargo required). Editor expansion
 /// additionally needs physical source locations from a compatible macro host;
 /// see `docs/editor-support.md` for the tested rust-analyzer/server configuration.
+///
+/// Bare imported macro names, binary sources, and unit-test ordinary usage require
+/// `context = "explicit"`. For existing ordinary usage, add it to inline metadata or
+/// the TOML snippet definition, never alongside `config`/`snippet` in a call. Keep
+/// selected production snippets, source macro definitions, and snapshot contents
+/// unchanged during this migration; no source annotations are needed.
 ///
 /// Both modes require your explicit typed inputs, inclusive line range, and tests;
 /// you also choose an optional output expression. Earlier initializers are never executed or captured. Automatic mode
@@ -58,7 +65,8 @@ use syn::parse_macro_input;
 /// and do not automatically relocate ranges.
 ///
 /// Automatic mode additionally accepts an optional versioned `context_snapshot`
-/// (no default) and `context_report = "invoice_context"`. To guard context without
+/// (no default) and `context_report = "invoice_context"`. Both are valid with omitted
+/// `context` and rejected with `context = "explicit"`. To guard context without
 /// guarding the snippet, explicitly set `snapshot = false`.
 /// `context_report` emits an accessor returning a TOML literal, not a printer or writer.
 /// Print it explicitly in a user-authored test, manually review/copy the TOML, then
@@ -84,6 +92,7 @@ use syn::parse_macro_input;
 /// use checkmate::extract_fn;
 ///
 /// extract_fn! {
+///     context = "explicit",
 ///     fn_sig = "fn add_if(a: f32, b: f32) -> f32",
 ///     module = "src/main.rs",
 ///     start = 7,
@@ -92,7 +101,7 @@ use syn::parse_macro_input;
 ///     snapshot = "snapshots/add_if.rs",
 /// }
 ///
-/// // Alternatively, load a named definition from an external TOML file:
+/// // Alternatively, load a TOML definition containing context = "explicit":
 /// extract_fn!(config = "checkmate.toml", snippet = "add_if");
 ///
 /// // Automatic example: at the root of examples/automatic-context/tests/automatic.rs.

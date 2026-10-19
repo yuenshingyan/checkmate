@@ -4,6 +4,7 @@ extract_fn!(config = "tests/fixtures/definitions.toml", snippet = "add");
 extract_fn!(snippet = "tail", config = "tests/fixtures/definitions.toml");
 
 extract_fn! {
+    context = "explicit",
     fn_sig = "fn with_output(a: i32, b: i32) -> i32",
     module = "tests/fixtures/snippet.rs",
     start = 4,
@@ -13,6 +14,7 @@ extract_fn! {
 }
 
 extract_fn! {
+    context = "explicit",
     fn_sig = "fn with_tail(a: i32, b: i32) -> i32 { /* generated */ }",
     module = "tests/fixtures/snippet.rs",
     start = 4,
@@ -20,6 +22,7 @@ extract_fn! {
 }
 
 extract_fn! {
+    context = "explicit",
     fn_sig = "pub fn with_expression(a: i32, b: i32) -> (i32, bool);",
     module = "tests/fixtures/snippet.rs",
     start = 4,
@@ -28,6 +31,7 @@ extract_fn! {
 }
 
 extract_fn! {
+    context = "explicit",
     fn_sig = "fn one_line(c: i32) -> i32",
     module = "tests/fixtures/snippet.rs",
     start = 9,
@@ -35,6 +39,7 @@ extract_fn! {
 }
 
 extract_fn! {
+    context = "explicit",
     fn_sig = "fn sum(values: &[i32]) -> i32",
     module = "tests/fixtures/loop.rs",
     start = 1,

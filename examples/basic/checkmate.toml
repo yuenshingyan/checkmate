@@ -1,4 +1,5 @@
 [snippets.add_if]
+context = "explicit"
 fn_sig = "fn add_if(a: f32, b: f32) -> f32"
 module = "src/main.rs"
 start = 7

@@ -115,6 +115,23 @@ Keep implementation behavior separate from planned features. Each backlog task h
 dependencies and acceptance criteria; complete and test them before checking it off.
 Do not implement all tasks merely because they have been recorded.
 
+## Default context and metadata migration
+
+Omitted `context` now selects automatic discovery, just like explicit `context = "auto"`.
+Both require a verified library root and a literal qualified invocation at the verified
+package integration-test root; failures never fall back to ordinary extraction.
+`context_report` and `context_snapshot` are valid with omission and rejected with
+`context = "explicit"`.
+
+Preserve ordinary workflows by adding `context = "explicit"` to existing inline
+metadata or TOML snippet definitions, never alongside `config`/`snippet` in a call.
+This includes binary sources, unit-test usage, bare imported macro names, and standalone
+fixtures. Tests/configurations may be migrated; selected production snippets, source
+macro definitions, and snapshot contents must stay unchanged for this migration.
+Do not add source annotations. Inputs and the typed signature remain user-provided;
+automatic discovery is not full Rust inference or a privacy proof. Rust checks the
+emitted code. Historical task records remain implementation history, not current rules.
+
 ## Snapshot changes
 
 Snapshots are reviewed source baselines, not generated build artifacts. If a selection

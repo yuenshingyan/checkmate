@@ -51,24 +51,36 @@ extract_fn! invocation
     → arguments::Invocation
     → config resolution (inline or named TOML definition)
     → signature and line-range validation
-    → source selection and optional snapshot comparison
+    → source selection and snippet snapshot comparison (unless snapshot = false)
     → Rust block parsing and optional output expression
     → #[cfg(test)] function and include_str! dependency items
 ```
+
+In both modes, omitted `snapshot` resolves `snapshots/<generated-function-name>.rs`
+from a valid parsed `fn_sig`, before loading the default guard. This is not a claim
+about every source/range validation order. The name ignores config snippet keys,
+source modules, and ranges; raw `r#type` becomes `type.rs`, and Unicode is retained.
+Default and explicit paths share the inline package/TOML configuration-directory bases.
+An explicit path overrides the default; only `false` disables it (`true`/empty paths
+are invalid). Same names in one base share a path; differing bodies need distinct
+explicit paths. A missing default reports the exact resolved path, with no fallback.
 
 Snapshots are checked before parsing the selected block so that a moved, incomplete
 snippet produces a drift diagnostic first. Source, config, and snapshot files are
 tracked with emitted `include_str!` items, including files that are not Rust modules.
 All generated items are gated by `cfg(test)`.
 
-Compilation reads inputs but never updates them. The supplied function signature,
+Compilation reads inputs but never creates, writes, updates, approves, or prints
+baseline files. Missing/mismatching guards fail closed. Context snapshots remain
+optional, automatic-only, with no default; context-only guarding requires
+`snapshot = false`. See [migration from unchecked omission](usage.md#migration-from-unchecked-omission). The supplied function signature,
 input types, and output remain explicit; surrounding runtime values are never captured.
 Ordinary rustc type, ownership, and visibility checks still apply.
 
 `context = "auto"` takes a separate route after configuration resolution:
 
 ```text
-snapshot/range checks → whole-file AST and selection
+signature-derived default guard + snapshot/range checks → whole-file AST and selection
     → library origin + compiler/manifest/caller-root placement proof → scopes
     → reference/input collection → resolver → shared graph → PromotionPlan
     → optional context model + reviewed baseline comparison

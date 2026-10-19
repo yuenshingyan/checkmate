@@ -4,7 +4,7 @@ mod support;
 use support::Consumer;
 
 const SOURCE: &str = "pub fn original(n: u8) -> u8 {\nlet result = n + 1;\nresult\n}\n";
-const ARGS: &str = "fn_sig = \"fn extracted(n: u8) -> u8\", module = \"src/lib.rs\", start = 2, end = 2, output = result, context = \"auto\"";
+const ARGS: &str = "snapshot = false, fn_sig = \"fn extracted(n: u8) -> u8\", module = \"src/lib.rs\", start = 2, end = 2, output = result, context = \"auto\"";
 
 #[test]
 fn argument_locations_accept_literal_calls_but_not_forwarded_or_included_tokens() {

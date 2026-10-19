@@ -12,7 +12,7 @@ fn extract(source: &str, statement: &str, signature: &str, output: &str) -> Stri
     assert_eq!(lines.len(), 1, "selection must be unique: {statement}");
     let line = lines[0].0 + 1;
     format!(
-        "checkmate::extract_fn! {{ fn_sig = {signature:?}, module = \"src/lib.rs\", start = {line}, end = {line}, output = {output}, context = \"auto\" }}\n"
+        "checkmate::extract_fn! {{ snapshot = false, fn_sig = {signature:?}, module = \"src/lib.rs\", start = {line}, end = {line}, output = {output}, context = \"auto\" }}\n"
     )
 }
 

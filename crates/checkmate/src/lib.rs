@@ -1,8 +1,9 @@
 //! Generate test-only functions from unmodified source snippets.
 //!
 //! Use inline options, or `extract_fn!(config = "checkmate.toml", snippet = "name")`.
-//! Line numbers are one-based and inclusive. Optional snapshot files guard against
-//! stale ranges without adding anything to the original source.
+//! Line numbers are one-based and inclusive. Snippet snapshots guard against stale
+//! ranges by default without adding anything to the original source; `snapshot = false`
+//! explicitly opts out.
 
 mod arguments;
 mod config;
@@ -42,15 +43,32 @@ use syn::parse_macro_input;
 /// aliases remain transparent to their rewritten targets. Unsupported discovery
 /// errors rather than falling back or bypassing privacy.
 ///
-/// `snapshot` guards selected source text. Automatic mode additionally accepts an
-/// optional versioned `context_snapshot` and `context_report = "invoice_context"`.
-/// The latter emits an accessor returning a TOML literal, not a printer or writer.
+/// In both modes, omitted `snapshot` guards selected source text with
+/// `snapshots/<generated-function-name>.rs` from a valid parsed `fn_sig`, independent
+/// of the config snippet key, source module, or ranges. Raw `r#type` maps to `type.rs`;
+/// Unicode identifiers are retained. Deriving the default requires a valid `fn_sig`.
+/// An explicit `snapshot = "path"` wins; `snapshot = false` disables it. `true` and empty strings
+/// are invalid. Same names in one path base share a default: use explicit distinct
+/// paths for different bodies. Missing defaults fail with the exact resolved path;
+/// missing/mismatching guards never fall back to unchecked extraction.
+///
+/// Previously unchecked omissions now require a manually created/reviewed default
+/// baseline, a retained explicit custom path, or `snapshot = false`. Do not edit
+/// original source to satisfy a guard. Snippet guards are not whole-program fingerprints
+/// and do not automatically relocate ranges.
+///
+/// Automatic mode additionally accepts an optional versioned `context_snapshot`
+/// (no default) and `context_report = "invoice_context"`. To guard context without
+/// guarding the snippet, explicitly set `snapshot = false`.
+/// `context_report` emits an accessor returning a TOML literal, not a printer or writer.
 /// Print it explicitly in a user-authored test, manually review/copy the TOML, then
 /// enable/restore the guard. Context baselines cover the supported discovery graph,
-/// not whole-program equivalence. Compilation never modifies source, config, or baselines.
+/// not whole-program equivalence. Compilation never modifies source or config, nor
+/// creates, writes, updates, approves, or prints baseline files.
 ///
 /// Inline paths and the `config` path are invoking-package-relative; paths inside
-/// TOML definitions are relative to that configuration file. Do not mix inline
+/// TOML definitions are relative to that configuration file's directory. Default
+/// snippet paths use these same bases as explicit paths. Do not mix inline
 /// options with `config`/`snippet`.
 ///
 /// The following are alternative contextual fragments, not one standalone doctest.

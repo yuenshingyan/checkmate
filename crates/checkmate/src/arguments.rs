@@ -2,7 +2,7 @@
 
 use proc_macro2::Span;
 use syn::parse::{Parse, ParseStream};
-use syn::{Expr, Ident, LitInt, LitStr, Token};
+use syn::{Expr, Ident, Lit, LitInt, LitStr, Token};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(crate) enum Context {
@@ -27,13 +27,32 @@ pub(crate) struct Args {
     pub start: LitInt,
     pub end: LitInt,
     pub output: Option<Expr>,
+    /// Explicit path, or the effective default after invocation resolution.
     pub snapshot: Option<LitStr>,
+    /// Only an explicit `snapshot = false` disables the guard.
+    pub snapshot_disabled: bool,
     pub context_snapshot: Option<LitStr>,
     /// Requested test-only review accessor identifier, not a path or write option.
     pub context_report: Option<LitStr>,
 }
 
 impl Args {
+    pub(crate) fn resolve_snapshot(&mut self) -> syn::Result<()> {
+        if self.snapshot.is_none() && !self.snapshot_disabled {
+            let template: crate::generate::FunctionTemplate =
+                self.fn_sig.parse().map_err(|error| {
+                    syn::Error::new(self.fn_sig.span(), format!("invalid fn_sig: {error}"))
+                })?;
+            let name = template.signature.ident.to_string();
+            let name = name.trim_start_matches("r#");
+            self.snapshot = Some(LitStr::new(
+                &format!("snapshots/{name}.rs"),
+                self.fn_sig.span(),
+            ));
+        }
+        Ok(())
+    }
+
     pub(crate) fn validate_context_options(&self) -> syn::Result<()> {
         for (name, value) in [
             ("context_snapshot", &self.context_snapshot),
@@ -97,7 +116,7 @@ impl Parse for Invocation {
                 "start" => set_once(&mut start, input.parse()?, &key)?,
                 "end" => set_once(&mut end, input.parse()?, &key)?,
                 "output" => set_once(&mut output, input.parse()?, &key)?,
-                "snapshot" => set_once(&mut snapshot, input.parse()?, &key)?,
+                "snapshot" => set_once(&mut snapshot, snapshot_option(input.parse()?)?, &key)?,
                 "context_snapshot" => set_once(&mut context_snapshot, input.parse()?, &key)?,
                 "context_report" => set_once(&mut context_report, input.parse()?, &key)?,
                 "context" => {
@@ -144,7 +163,8 @@ impl Parse for Invocation {
             start: start.ok_or_else(|| input.error("missing start"))?,
             end: end.ok_or_else(|| input.error("missing end"))?,
             output,
-            snapshot,
+            snapshot_disabled: matches!(snapshot, Some(None)),
+            snapshot: snapshot.flatten(),
             context_snapshot,
             context_report,
             context: context.unwrap_or_default(),
@@ -154,9 +174,24 @@ impl Parse for Invocation {
     }
 }
 
+/// Shared inline/TOML validation. Omission is handled separately from false.
+pub(crate) fn snapshot_option(value: Lit) -> syn::Result<Option<LitStr>> {
+    match value {
+        Lit::Str(path) if !path.value().is_empty() => Ok(Some(path)),
+        Lit::Bool(flag) if !flag.value => Ok(None),
+        other => Err(syn::Error::new(
+            other.span(),
+            "snapshot must be a non-empty path string or false; omit it to use snapshots/<function-name>.rs",
+        )),
+    }
+}
+
 #[cfg(test)]
 #[path = "options_tests.rs"]
 mod options_tests;
+#[cfg(test)]
+#[path = "snapshot_options_tests.rs"]
+mod snapshot_options_tests;
 
 fn set_once<T>(slot: &mut Option<T>, value: T, key: &Ident) -> syn::Result<()> {
     if slot.is_some() {

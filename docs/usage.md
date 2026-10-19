@@ -45,8 +45,7 @@ under a package's `tests/` directory are already test-only.
 
 - **Ordinary extraction (omit `context`)**: supply any required context in the test
   scope yourself. Use this for standalone statement fixtures, binary sources, or
-  context outside automatic discovery's supported subset. Existing inline/config
-  definitions and source snapshots keep their behavior.
+  context outside automatic discovery's supported subset.
 - **Automatic context (`context = "auto"`)**: discover supported declarations from a
   verified library root, invoked literally at an integration-test crate root. This
   saves manual declaration plumbing, not test design or input typing.
@@ -66,8 +65,11 @@ root**; macro/config path bases are specified separately.
 - `output` (optional): a Rust expression appended to the selected statements. Use
   `output = c` to return a local variable, or an expression such as `(c, c >= 0)`.
   Omit it if the snippet already ends with its return expression or returns `()`.
-- `snapshot` (optional): path to a reviewed copy of the selected source lines,
-  relative to the invoking package's `Cargo.toml`. A mismatch fails compilation.
+- `snapshot`: omission guards with `snapshots/<generated-function-name>.rs`, derived
+  from the parsed `fn_sig`. `snapshot = "path"` overrides that default;
+  `snapshot = false` explicitly disables the snippet guard. `true` and an empty string
+  are invalid. Inline paths (including the default) are relative to the invoking
+  package's `Cargo.toml`. Missing files and mismatches fail compilation.
 - `context` (optional): only `"auto"` is accepted. Omission keeps ordinary extraction.
   See the placement and supported-context restrictions below.
 - `context_snapshot` (optional, automatic mode only): path to a reviewed, versioned
@@ -121,13 +123,15 @@ extract_fn!(config = "checkmate.toml", snippet = "add_if");
 
 Each `[snippets.NAME]` defines one extraction; a file can contain multiple definitions.
 `output` is a Rust expression **inside a TOML string**. `output`, `snapshot`,
-`context`, `context_snapshot`, and `context_report` are optional. Set `context = "auto"` in the definition, not alongside
+`context`, `context_snapshot`, and `context_report` are optional; omitting `snapshot`
+still enables the default snippet guard. Set `context = "auto"` in the definition, not alongside
 `config`/`snippet` in the invocation. Unknown keys, missing required fields, and missing snippet names are errors.
 Do not mix `config`/`snippet` with inline options.
 
 The `config` path is relative to the invoking package's `Cargo.toml`. Paths **inside
 that file** (`module`, `snapshot`, and `context_snapshot`) are relative to the configuration file's own
-directory, so definitions can live in a subdirectory. See
+directory, so definitions can live in a subdirectory. The default snippet path uses
+that same configuration directory, not the package root. See
 [`examples/basic/checkmate.toml`](../examples/basic/checkmate.toml) and
 [`examples/basic/src/tests.rs`](../examples/basic/src/tests.rs) for a working example.
 The example's source/config/snapshot paths are relative to its package, not the
@@ -215,7 +219,7 @@ The public boundary is intentionally narrower than the internal resolver:
 All emitted functions, types, impls, imports, and dependency markers are test-only.
 Automatic reports use [bounded structured diagnostics](diagnostics.md), anchored at
 an actual invocation span. Compiler type/borrow/privacy errors are not remapped.
-Source, caller, Cargo manifest, configuration, and optional snapshot contents read by
+Source, caller, Cargo manifest, configuration, and enabled snapshot contents read by
 analysis are tracked through dependency markers. No input file is modified.
 
 Existing `snapshot` guards still protect selected source text only. Add
@@ -246,8 +250,9 @@ range. Completion of the public workflow does not imply full Rust inference supp
 ### Review context explicitly
 
 The optional `context_snapshot` is versioned TOML (`format = "checkmate-context"`,
-`version = 1`), separate from the source-text `snapshot`. Either guard can be used
-without the other. `context_report` is also optional: `invoice_context()` only returns
+`version = 1`), separate from the source-text `snapshot`. It has no default path and
+is automatic-only. To use a context guard without a snippet guard, explicitly set
+`snapshot = false`; omitting `snapshot` enables the default. `context_report` is also optional: `invoice_context()` only returns
 a TOML string literal; it does not execute the extraction, print, or write anything.
 The example's ignored user-authored test prints it explicitly:
 
@@ -273,7 +278,24 @@ and external/toolchain/runtime behavior is not fingerprinted. See
 
 A snapshot is a persistent, reviewed copy of the selected snippet, stored outside
 the original source. Unlike compiler-generated functions or build artifacts, it
-survives clean builds and can be committed to version control.
+survives clean builds and can be committed to version control. **Both ordinary and
+automatic extraction are snippet-guarded by default.**
+
+Omitting `snapshot` selects `snapshots/<generated-function-name>.rs` from the valid,
+parsed `fn_sig`, independent of the TOML snippet key, source `module`, and line range.
+`fn r#type()` uses `snapshots/type.rs`; Unicode identifiers are retained. The signature
+must parse before loading this default guard; this does not specify the ordering of
+all source/range validation. Inline defaults are package-relative and TOML defaults
+are configuration-directory-relative, just like explicit paths. Same function names
+within one base share a default path: choose explicit distinct paths for different bodies.
+
+### Migration from unchecked omission
+
+Previously, omitting `snapshot` left the snippet unchecked. Now either manually create
+and review the default baseline, retain an existing explicit custom path, or set
+`snapshot = false` to intentionally keep unchecked extraction. `snapshot = "path"`
+always wins; `snapshot = true` and `snapshot = ""` are errors. Do not edit original
+source to satisfy a guard or discovery limitation.
 
 1. Select the range and copy those exact lines, retaining indentation, into a
    snapshot file. For the example, `snapshots/add_if.rs` contains:
@@ -286,19 +308,21 @@ survives clean builds and can be committed to version control.
        };
    ```
 
-2. Set `snapshot` in the inline invocation or TOML definition and commit the snapshot.
+2. Use the default path or set an explicit `snapshot` path and commit the reviewed file.
 3. Run tests. Checkmate compares the current selection to the saved snippet **before
    parsing it**. A difference fails compilation with the source range, snapshot path,
    and first differing line, including expected and actual text.
 4. If lines moved, fix `start`/`end`; the snapshot need not change. If you intentionally
    changed the snippet, review the change and explicitly replace the snapshot.
 
-No snapshot is created or updated during compilation—not even when missing.
+A missing default file fails with its exact resolved path. Compilation never creates,
+writes, updates, approves, or prints baseline files—not even when missing. Missing or
+mismatching baselines never fall back to unchecked extraction.
 Snapshots normalize LF/CRLF line endings and allow a final newline; other whitespace
 and comments are significant. The guard compares the snippet, not the wrapper's
 signature or `output`. It cannot detect a move to a different but identical snippet,
-and it does not automatically relocate code. Without either guard, extraction is
-unchecked for drift. A context guard alone compares normalized syntax, not ordinary
+and it does not automatically relocate code or fingerprint the whole program. With
+`snapshot = false` and no `context_snapshot`, extraction is unchecked for drift. A context guard alone compares normalized syntax, not ordinary
 comments/formatting. No markers or annotations are inserted into the original source.
 
 ## Diagnostics and rebuilding

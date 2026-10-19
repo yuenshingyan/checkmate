@@ -119,8 +119,24 @@ Do not implement all tasks merely because they have been recorded.
 
 Snapshots are reviewed source baselines, not generated build artifacts. If a selection
 moves, correct its line range. If source content intentionally changes, review and
-explicitly update the associated snapshot. Never add automatic writes to compilation.
+explicitly update the associated snapshot. Never edit original source just to satisfy
+a guard or discovery restriction. Compilation must never create, write, update,
+approve, or print baseline files, or fall back on a missing/mismatching guard.
 Commit relevant source/config/snapshot changes together.
+
+Both ordinary and automatic extraction now default omitted `snapshot` to
+`snapshots/<generated-function-name>.rs` from parsed `fn_sig`, independent of snippet
+key/module/ranges. Raw `r#type` maps to `type.rs`; Unicode is retained. Inline paths
+are package-relative; TOML paths are configuration-directory-relative, including
+defaults. Explicit `snapshot = "path"` wins; `false` opts out; `true`/empty strings
+are invalid. Missing defaults must report the exact resolved path. Same function names
+in one base share a path: choose distinct explicit paths for different bodies.
+
+For previously unchecked omission, manually create/review the default baseline,
+retain custom explicit paths, or set `snapshot = false`. Context guards remain
+optional and automatic-only, with no default; context-only guarding needs
+`snapshot = false`. A snippet guard alone is not a whole-program fingerprint and
+neither guard relocates ranges. See the [migration guide](docs/usage.md#migration-from-unchecked-omission).
 
 [Context snapshots](docs/context-snapshots.md) are versioned logical models, not emitted
 helper names or traversal IDs. Keep review data separate from filesystem writes. The

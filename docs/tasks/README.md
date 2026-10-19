@@ -24,7 +24,7 @@ external types/imports to be available at its invocation site. See the
 | [x] | [002 — Parse source files and locate selected syntax](002-source-selection.md) | 001 |
 | [x] | [003 — Index lexical scopes and bindings](003-scope-index.md) | 002 |
 | [x] | [004 — Index module paths and explicit imports](004-import-index.md) | 003 |
-| [ ] | [005 — Collect references and required inputs](005-reference-collection.md) | 003 |
+| [x] | [005 — Collect references and required inputs](005-reference-collection.md) | 003, 004 |
 | [ ] | [006 — Resolve reusable original declarations](006-original-declarations.md) | 004, 005 |
 | [ ] | [007 — Build the dependency graph](007-dependency-graph.md) | 006 |
 | [ ] | [008 — Promote self-contained local types](008-local-types.md) | 007 |
@@ -50,10 +50,11 @@ Review/merge in this order (or compare each branch against its listed base):
 | 002 | `task/002-source-selection` | `task/001-safety-contract` |
 | 003 | `task/003-scope-index` | `task/002-source-selection` |
 | 004 | `task/004-import-index` | `task/003-scope-index` |
+| 005 | `task/005-reference-collection` | `task/004-import-index` |
 
-Tasks 002–004 are tested internal foundations, deliberately test-gated until
+Tasks 002–005 are tested internal foundations, deliberately test-gated until
 011 adds the public opt-in pipeline. The macro still does not accept `context = "auto"`.
-Next: task 005 (reference collection).
+Next: task 006 (original declaration resolution), then 007 (dependency graph).
 
 ## Out of scope for this milestone
 

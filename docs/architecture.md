@@ -26,6 +26,7 @@ All paths below are inside `crates/checkmate/src/`.
 | `scope.rs`, `scope/build.rs`, `scope/patterns.rs` | Test-gated lexical namespaces, scope tree, declaration identities, binding visibility and pattern validation |
 | `scope/imports.rs` | Test-gated explicit import trees, aliases, module paths, and unvalidated path provenance |
 | `source/origin.rs` | Test-gated source-to-library/binary-root identity from the package manifest |
+| `resolve.rs`, `resolve/collect.rs` | Test-gated reference/input collection across snippet, supplied signature, and output |
 | `snapshot.rs` | Compare selected source against a reviewed baseline; report first mismatch |
 | `generate.rs` | Signature parsing, inclusive line selection, snapshot validation, body parsing, token emission |
 | `tests.rs` | Unit tests for syntax, configuration, ranges, diagnostics, and snapshots |
@@ -67,10 +68,10 @@ captured or inferred. Ordinary rustc type, ownership, and visibility checks stil
 The [design contract](automatic-context.md) defines the opt-in syntax and safety
 boundary. The [automatic-context backlog](tasks/README.md) describes new source AST, scope,
 reference-resolution, and dependency-graph passes. Whole-file source selection and
-lexical scope/import indexing and source-root mapping are implemented and unit-tested,
-but remain test-gated until
-task 011 integrates the opt-in pipeline. Reference/dependency resolution is not
-implemented yet.
+lexical scope/import indexing, source-root mapping, and reference collection are
+implemented and unit-tested, but remain test-gated until task 011 integrates the
+opt-in pipeline. Final declaration/accessibility resolution and dependency graphs
+are not implemented yet.
 
 The lexical index distinguishes hoisted items from position-dependent locals and
 tracks type/value/macro namespaces separately. It models closure capture, item
@@ -83,5 +84,19 @@ import namespaces, imported binding-pattern names, implementations, conditional
 compilation, and opaque binding-producing syntax still fail explicitly. Bare unresolved
 prelude constructors in binding patterns also fail; qualified constructor patterns are
 unambiguous. Ordinary extraction is unaffected by these limitations.
+
+Reference collection indexes a separate analysis function containing the supplied
+signature, exact selected lines, and optional output. It maps body positions back
+to the original file and retains distinct source/generated declaration identities.
+Source-proven constant patterns are preserved rather than misread as new bindings
+when their declarations are absent from the analysis function. Earlier statements
+are never copied or executed. Signature/output locations are explicitly labeled;
+they are not presented as original-file locations.
+
+Only explicit supplied parameters satisfy required outer-value inputs. The collector
+reports missing inputs and capture/shadowing changes, and records unknown roots,
+ambiguous type/const arguments, methods, and qualified final targets as deferred
+analysis. A collected root identity is not proof of final member resolution or access.
+
 The current source/argument/generation separation provides places to add them without
 turning the public proc-macro entry point into the implementation itself.

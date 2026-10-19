@@ -60,7 +60,8 @@ captured or inferred. Ordinary rustc type, ownership, and visibility checks stil
 
 ## Planned work boundary
 
-The [automatic-context backlog](tasks/README.md) describes new source AST, scope,
+The [design contract](automatic-context.md) defines the opt-in syntax and safety
+boundary. The [automatic-context backlog](tasks/README.md) describes new source AST, scope,
 reference-resolution, and dependency-graph passes. Those passes are not present yet.
 The current source/argument/generation separation provides places to add them without
 turning the public proc-macro entry point into the implementation itself.

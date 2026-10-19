@@ -1,8 +1,14 @@
 # 001 — Define the supported subset and safety contract
 
-- **Status:** Planned
+- **Status:** Complete
 - **Dependencies:** None
 - **Goal:** Define exactly what automatic discovery may transform before implementing it.
+
+## Result
+
+See [the automatic-context design contract](../automatic-context.md). The opt-in
+syntax, supported subset, identity/privacy constraints, default-mode compatibility,
+and diagnostic requirements are defined there. No public API is enabled by this task.
 
 ## Scope
 

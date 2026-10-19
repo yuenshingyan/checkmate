@@ -1,8 +1,9 @@
 # Automatic-context resolution backlog
 
-These are **planned tasks, not implemented features**. Work through the dependencies
-before enabling automatic context discovery. The current macro still requires any
-external types/imports to be available at its invocation site.
+This backlog tracks work toward automatic context discovery; completion of a
+foundation task does not enable the public feature. The current macro still requires
+external types/imports to be available at its invocation site. See the
+[design contract](../automatic-context.md) for the agreed implementation boundary.
 
 ## Constraints
 
@@ -19,7 +20,7 @@ external types/imports to be available at its invocation site.
 
 | Done | Task | Dependencies |
 | --- | --- | --- |
-| [ ] | [001 — Define the supported subset and safety contract](001-safety-contract.md) | None |
+| [x] | [001 — Define the supported subset and safety contract](001-safety-contract.md) | None |
 | [ ] | [002 — Parse source files and locate selected syntax](002-source-selection.md) | 001 |
 | [ ] | [003 — Index lexical scopes and bindings](003-scope-index.md) | 002 |
 | [ ] | [004 — Index module paths and explicit imports](004-import-index.md) | 003 |

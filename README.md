@@ -130,5 +130,6 @@ cargo clippy --workspace --all-targets -- -D warnings
 
 Format the macro crate with `cargo fmt -p checkmate`. Do not broadly format line-selected
 example sources or fixtures: their ranges and reviewed snapshots are intentional.
-See [CONTRIBUTING.md](CONTRIBUTING.md). The dependency-stacked milestone branches remain
-separate from `master`; completion does not imply a merge or release.
+See [CONTRIBUTING.md](CONTRIBUTING.md). The milestone was developed on dependency-stacked
+branches; the task records preserve that implementation history. Completion does not
+imply a release or support for deferred features.

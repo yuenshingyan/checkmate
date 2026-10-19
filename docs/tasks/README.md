@@ -1,8 +1,8 @@
 # Automatic-context resolution backlog
 
-The 14-task milestone is complete on dependency-stacked branches; `master` remains
-unmerged. Public `context = "auto"` supports verified library-root to package integration-
-test-root extraction, optional reviewed context baselines, and the conservative subset
+The 14-task milestone is complete. Its implementation was developed on dependency-stacked
+branches, recorded below. Public `context = "auto"` supports verified library-root to package
+integration-test-root extraction, optional reviewed context baselines, and the conservative subset
 below. Ordinary extraction still requires external context at its invocation site.
 Start with the [complete example](../../examples/automatic-context/README.md),
 [design contract](../automatic-context.md), and [public placement limits](../usage.md#automatic-context-opt-in).

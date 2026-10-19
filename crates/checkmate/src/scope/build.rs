@@ -7,6 +7,8 @@ use super::*;
 pub(super) fn build(source: &ParsedSource) -> syn::Result<ScopeIndex> {
     let mut builder = Builder {
         index: ScopeIndex {
+            source_path: source.path.clone(),
+            imports: Vec::new(),
             scopes: vec![Scope {
                 parent: None,
                 kind: ScopeKind::File,
@@ -89,6 +91,18 @@ impl Builder {
             self.fail(ident.span(), &format!("duplicate parameter `{name}`"));
             return;
         }
+        if from.is_none()
+            && self.index.imports.iter().any(|import| {
+                import.scope == self.current
+                    && import.alias == name
+                    && namespaces
+                        .iter()
+                        .any(|&namespace| import.could_bind(namespace))
+            })
+        {
+            self.fail(ident.span(), &format!("declaration `{name}` overlaps an import; namespace disambiguation is not yet supported"));
+            return;
+        }
         // Duplicate hoisted names are not valid Rust. Do not guess which one wins.
         if from.is_none()
             && self.index.scopes[self.current.0]
@@ -147,7 +161,7 @@ impl Builder {
                     self.fail(item.span(), "unnamed macro definition");
                 }
             }
-            syn::Item::Use(item) => self.fail(item.span(), "import indexing is deferred to task 004"),
+            syn::Item::Use(item) => self.register_import(item),
             _ => self.fail(item.span(), "unsupported item kind; imports, impls, traits, unions, extern items, and item-producing macros require further analysis"),
         }
     }
@@ -257,6 +271,9 @@ impl<'ast> Visit<'ast> for Builder {
                         visit::visit_item_mod(this, node);
                     });
                 } else {
+                    for attr in &node.attrs {
+                        self.visit_attribute(attr);
+                    }
                     self.fail(node.span(), "out-of-line module context is not indexed");
                 }
             }
@@ -285,6 +302,7 @@ impl<'ast> Visit<'ast> for Builder {
                     visit::visit_item_static(this, node);
                 })
             }
+            syn::Item::Use(node) => visit::visit_item_use(self, node),
             // Definitions do not expand bindings; invocations are rejected below.
             syn::Item::Macro(node) if node.mac.path.is_ident("macro_rules") => {
                 for attr in &node.attrs {
@@ -391,7 +409,12 @@ impl<'ast> Visit<'ast> for Builder {
     }
 
     fn visit_attribute(&mut self, attr: &'ast syn::Attribute) {
-        if attr.path().is_ident("cfg") || attr.path().is_ident("cfg_attr") {
+        if attr.path().is_ident("path") {
+            self.fail(
+                attr.span(),
+                "custom #[path] modules require source-layout analysis",
+            );
+        } else if attr.path().is_ident("cfg") || attr.path().is_ident("cfg_attr") {
             self.fail(
                 attr.span(),
                 "conditional compilation cannot be resolved by lexical indexing",

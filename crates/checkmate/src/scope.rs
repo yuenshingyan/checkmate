@@ -1,11 +1,14 @@
 //! Lexical declarations, namespaces, and binding visibility for automatic context.
 //!
-//! This is not whole-program name resolution. Imports and opaque binding-producing
-//! syntax are explicit errors until their own tasks implement them. A missing name
+//! This is not whole-program name resolution. Explicit imports are indexed as
+//! unvalidated namespace candidates; opaque binding-producing syntax is rejected. A missing name
 //! means only "not in this lexical index", not "not provided by Rust's prelude".
 
 mod build;
+pub(crate) mod imports;
 mod patterns;
+
+use imports::{Import, ImportId};
 
 use proc_macro2::LineColumn;
 
@@ -102,13 +105,16 @@ pub(crate) struct Scope {
 pub(crate) enum Lookup {
     Found(DeclarationId),
     ForbiddenCapture(DeclarationId),
+    Import(ImportId),
     Missing,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct ScopeIndex {
+    pub source_path: std::path::PathBuf,
     pub scopes: Vec<Scope>,
     pub declarations: Vec<Declaration>,
+    pub imports: Vec<Import>,
 }
 
 impl ScopeIndex {
@@ -151,6 +157,11 @@ impl ScopeIndex {
                         Lookup::Found(binding.declaration)
                     };
                 }
+            }
+            if let Some((id, _)) = self.imports.iter().enumerate().find(|(_, import)| {
+                import.scope == scope && import.alias == name && import.could_bind(namespace)
+            }) {
+                return Lookup::Import(ImportId(id));
             }
             // Ordinary unqualified names do not inherit a module's parent scope.
             // Textually scoped macro_rules names are the exception.

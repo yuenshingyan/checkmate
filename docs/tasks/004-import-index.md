@@ -1,8 +1,21 @@
 # 004 — Index module paths and explicit imports
 
-- **Status:** Planned
+- **Status:** Complete
 - **Dependencies:** 003
 - **Goal:** Record where explicitly imported names originate.
+
+## Result
+
+Implemented explicit import records and path provenance in `scope/imports.rs`, plus
+verified library/binary-root discovery in `source/origin.rs`. Nineteen focused tests
+cover aliases, namespaces, module paths, manifest layouts, identity mismatches, and
+unsupported cases. This remains test-gated until task 011.
+
+Imports are unvalidated namespace candidates, not proof of target visibility or
+availability. Imported names in binding patterns and overlapping unproven namespaces
+fail explicitly pending target-kind resolution. Source mapping supports conventional
+or Cargo-declared library/binary roots with explicit 2018/2021/2024 editions; arbitrary
+module files, custom `#[path]` modules, inherited editions, and glob imports are not guessed.
 
 ## Scope
 

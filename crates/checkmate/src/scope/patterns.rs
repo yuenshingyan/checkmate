@@ -50,6 +50,14 @@ impl Builder {
                     Lookup::Found(id) | Lookup::ForbiddenCapture(id) => {
                         Some(self.index.declarations[id.0].kind)
                     }
+                    Lookup::Import(_) => {
+                        return Err(syn::Error::new(
+                            node.span(),
+                            format!(
+                                "pattern `{ident}` may be an imported constant or constructor; target-kind resolution is required before inferring a binding"
+                            ),
+                        ));
+                    }
                     Lookup::Missing => None,
                 };
                 if existing.is_none() && matches!(ident.as_str(), "None" | "Some" | "Ok" | "Err") {
@@ -61,7 +69,7 @@ impl Builder {
                     ));
                 }
                 // A bare constant/unit-struct name is a path-like pattern, not a
-                // new variable. Imported names will require task 004's resolver.
+                // new variable. Imported target kinds remain a task 006 concern.
                 if let Some(kind) = existing {
                     if kind.is_pattern_constant()
                         && node.by_ref.is_none()

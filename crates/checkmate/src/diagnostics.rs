@@ -41,7 +41,7 @@ impl Kind {
             ),
             Self::SourceIdentity => (
                 "CM003",
-                "Verify that the requested source path identifies the intended source file.",
+                "Verify source/caller paths and Cargo target identity. Editor macro hosts must also provide physical source locations; see docs/editor-support.md.",
             ),
             Self::MissingInput => (
                 "CM004",

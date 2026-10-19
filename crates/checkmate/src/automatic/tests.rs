@@ -5,7 +5,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
-use syn::{spanned::Spanned, visit::Visit};
+use syn::visit::Visit;
 
 const SOURCE: &str = "pub fn original() {\nlet answer = 42;\n}\n";
 const INVOCATION: &str = "::checkmate::extract_fn! { fn_sig = \"fn extracted() -> i32\", module = \"src/lib.rs\", start = 2, end = 2, output = answer, context = \"auto\" }\n";
@@ -46,7 +46,8 @@ impl Fixture {
         impl<'ast> Visit<'ast> for Find {
             fn visit_macro(&mut self, mac: &'ast syn::Macro) {
                 if mac.path.segments.last().unwrap().ident == "extract_fn" {
-                    self.0 = Some((mac.span().start(), mac.tokens.to_string()));
+                    let anchor = mac.tokens.clone().into_iter().next().unwrap().span();
+                    self.0 = Some((anchor.start(), mac.tokens.to_string()));
                 }
             }
         }
@@ -77,6 +78,23 @@ fn failure(input: Input, needle: &str) {
         super::run(input).expect_err("automatic errors must not fall back to ordinary extraction");
     assert!(error.contains(needle), "expected {needle:?}: {error}");
     assert!(error.contains("task011-unit"), "{error}");
+}
+
+#[test]
+fn unavailable_caller_location_explains_editor_requirement_not_bad_source() {
+    let f = Fixture::new();
+    let mut input = f.input();
+    input.caller.file = None;
+    let error = super::run(input).unwrap_err();
+    for expected in [
+        "CM003",
+        "compiler invocation file is unavailable",
+        "Editor macro hosts need source-location support",
+        "docs/editor-support.md",
+        "does not mean the selected source path is wrong",
+    ] {
+        assert!(error.contains(expected), "{error}");
+    }
 }
 
 #[test]

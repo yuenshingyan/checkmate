@@ -78,6 +78,26 @@ Task-013 verification also compares SHA-256 hashes of 26 existing repository exa
 sources, manifests/configs, snapshots, and extraction fixtures against the task-012 branch.
 No original fixture/baseline is updated to make a test pass.
 
+## Editor compatibility follow-up
+
+The [editor support fix](editor-support.md) adds original-input-token caller anchoring
+without changing the accepted placement rules:
+
+- [`caller_spans.rs`](../crates/checkmate/tests/caller_spans.rs) exercises all invocation
+  delimiters, Unicode/comments, inline/configured metadata, forwarded token trees (local
+  and exported wrappers), includes, nested invocations, and recovery without cleaning.
+- A focused unit regression requires editor-specific guidance when the physical caller
+  file is unavailable. Existing target-class, token, namespace, and privacy tests remain.
+- [`scripts/test_rust_analyzer.py`](../scripts/test_rust_analyzer.py) independently drives
+  real LSP expansion, function/field hover, enabled diagnostics, unsaved token mismatch,
+  and buffer restoration. This opt-in external-tool test is **not** part of Cargo's test count.
+
+Verification: **293 Cargo tests pass** on Rust 1.99.1 and the prior Rust 1.97.1 toolchain;
+three remain ignored. The live editor checks pass with the documented experimental
+version pairing. Legacy-protocol expansion still fails closed. These results do not
+establish compatibility with every editor/version or unsaved-buffer state, nor a new
+coverage measurement. Existing example/fixture source, config, and baseline bytes remain unchanged.
+
 ## Existing complementary checks
 
 - [`automatic.rs`](../crates/checkmate/tests/automatic.rs): library-root/caller placement,

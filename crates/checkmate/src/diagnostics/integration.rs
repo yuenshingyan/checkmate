@@ -406,7 +406,7 @@ fn import_origin_identity_failures_have_identity_guidance() {
         assert_eq!(error.kind, Kind::SourceIdentity);
         let report = error.render(&case.request(), &case.source, None);
         assert!(
-            report.contains("CM003") && report.contains("requested source path"),
+            report.contains("CM003") && report.contains("Verify source/caller paths"),
             "{report}"
         );
     }

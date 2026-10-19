@@ -38,6 +38,24 @@ The [complete public workflow](examples/automatic-context/README.md) is a separa
 library/integration-test example, not an internal analysis API. Its source is ordinary
 Rust; extraction metadata, tests, and reviewed baselines live in separate files.
 
+## Editor compatibility
+
+The workspace pins Rust 1.99.1 for its tested rust-analyzer macro-server pairing; this
+is distinct from the macro library's Rust 1.88 MSRV. See [editor support](docs/editor-support.md)
+for the experimental protocol switch and version boundary. Do not replace physical
+caller verification with inferred filenames or an editor-environment bypass.
+
+After caller capture or editor setup changes, run the real LSP harness as well as Cargo:
+
+```sh
+python3 scripts/test_rust_analyzer.py /path/to/rust-analyzer
+cargo test -p checkmate --test caller_spans
+```
+
+Editor tests are opt-in because rust-analyzer/Python are external tools, not Cargo test
+dependencies. The harness must observe real expansions/types and a failing negative
+control; suppressing `macro-error` or merely passing Cargo is not an editor regression test.
+
 ## Coverage and generated properties
 
 See [the measured baseline and limitations](docs/coverage.md). Task 008 adds bounded,

@@ -10,6 +10,8 @@ use crate::source::ast::{ParsedSource, SourceRange};
 
 pub(crate) struct Catalog<'a> {
     pub index: &'a ScopeIndex,
+    pub source: &'a ParsedSource,
+    pub implementations: Vec<&'a syn::ItemImpl>,
     items: Vec<Option<&'a syn::Item>>,
 }
 
@@ -23,6 +25,7 @@ impl<'a> Catalog<'a> {
         struct Items<'a> {
             identities: BTreeMap<(LineColumn, LineColumn, String), usize>,
             items: Vec<Option<&'a syn::Item>>,
+            implementations: Vec<&'a syn::ItemImpl>,
         }
         impl<'ast> Visit<'ast> for Items<'ast> {
             fn visit_item(&mut self, item: &'ast syn::Item) {
@@ -37,6 +40,9 @@ impl<'a> Catalog<'a> {
                         self.items[id] = Some(item);
                     }
                 }
+                if let syn::Item::Impl(item) = item {
+                    self.implementations.push(item);
+                }
                 visit::visit_item(self, item);
             }
         }
@@ -48,11 +54,14 @@ impl<'a> Catalog<'a> {
                 .map(|(id, item)| ((item.range.start, item.range.end, item.name.clone()), id))
                 .collect(),
             items: vec![None; index.declarations.len()],
+            implementations: Vec::new(),
         };
         visitor.visit_file(&source.file);
         Ok(Self {
             index,
+            source,
             items: visitor.items,
+            implementations: visitor.implementations,
         })
     }
 

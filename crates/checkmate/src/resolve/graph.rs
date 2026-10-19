@@ -108,8 +108,12 @@ impl Graph {
             let NodeId::Source(declaration) = id else {
                 unreachable!()
             };
-            let references = collect::dependencies(resolver, declaration)
+            let mut references = collect::dependencies(resolver, declaration)
                 .map_err(|err| builder.failure(&id, &err.to_string()))?;
+            references.extend(
+                super::implementations::dependencies(resolver, declaration)
+                    .map_err(|err| builder.failure(&id, &err.to_string()))?,
+            );
             for dependency in &references {
                 if let Some(child) = builder
                     .insert(&dependency.target)

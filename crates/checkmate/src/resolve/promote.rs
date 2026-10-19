@@ -116,7 +116,9 @@ impl PromotionPlan {
                     validate(&item)?;
                     let mut rewriter = rewrite::Rewriter::new(&names);
                     for reference in &node.references {
-                        rewriter.add(reference.range, reference.target.clone())?;
+                        if SourceRange::of(&item).contains(reference.range) {
+                            rewriter.add(reference.range, reference.target.clone())?;
+                        }
                     }
                     rewriter.visit_item_mut(&mut item);
                     rewriter.finish()?;
@@ -144,6 +146,25 @@ impl PromotionPlan {
                         removals.insert((shift(range.start), shift(range.end)));
                     }
                     items.push(item);
+                    for implementation in resolver
+                        .implementations
+                        .get(declaration)
+                        .into_iter()
+                        .flatten()
+                    {
+                        let range = SourceRange::of(*implementation);
+                        let mut item = syn::Item::Impl((*implementation).clone());
+                        validate(&item)?;
+                        let mut rewriter = rewrite::Rewriter::new(&names);
+                        for reference in &node.references {
+                            if range.contains(reference.range) {
+                                rewriter.add(reference.range, reference.target.clone())?;
+                            }
+                        }
+                        rewriter.visit_item_mut(&mut item);
+                        rewriter.finish()?;
+                        items.push(item);
+                    }
                 }
             }
         }

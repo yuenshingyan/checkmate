@@ -12,8 +12,8 @@ markers, annotations, or wrappers to the original code.
 - Get source-aware extraction errors and automatic rebuilds when input files change.
 
 Users write their own tests. Automatic discovery of surrounding types/imports is
-**not publicly enabled yet**. Scope/dependency analysis and local-type promotion exist as
-tested internal foundations; see the [task backlog](docs/tasks/README.md).
+**not publicly enabled yet**. Scope/dependency analysis, local-type promotion, and checked
+inherent implementations exist as tested internal foundations; see the [task backlog](docs/tasks/README.md).
 
 ## Quick start
 
@@ -57,7 +57,8 @@ path resolution, and current limitations.
 
 See the [example index](examples/README.md) for a struct-returning extraction,
 tuple outputs, and printed walkthroughs of internal declaration/dependency analysis
-and [local-type promotion](examples/local-types/README.md).
+and [local-type promotion](examples/local-types/README.md), including
+[checked inherent methods](examples/inherent-methods/README.md).
 
 ```sh
 cargo test -p checkmate-struct-example
@@ -74,6 +75,7 @@ crates/checkmate/       Procedural macro, unit tests, and integration tests
 examples/basic/        Standalone consumer with source, tests, config, and snapshot
 examples/struct-return/ Struct/tuple examples and shared inputs for analysis walkthroughs
 examples/local-types/   Ordinary source for the internal local-type promotion walkthrough
+examples/inherent-methods/ Ordinary source for checked implementation walkthroughs
 docs/usage.md          Public API and workflows
 docs/architecture.md   Current implementation and module responsibilities
 docs/tasks/            Small, dependency-ordered tasks for automatic context resolution

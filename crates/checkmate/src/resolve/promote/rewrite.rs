@@ -110,6 +110,18 @@ impl<'a> Rewriter<'a> {
 }
 
 impl VisitMut for Rewriter<'_> {
+    fn visit_receiver_mut(&mut self, receiver: &mut syn::Receiver) {
+        // syn synthesizes Self/&Self for shorthand receivers. Rewriting that
+        // hidden type makes its printer emit invalid `&self: &Renamed` syntax.
+        // Consume/check the identity, then retain shorthand: the rewritten impl
+        // header already establishes the same promoted Self owner.
+        let implicit = receiver.colon_token.is_none().then(|| receiver.ty.clone());
+        visit_mut::visit_receiver_mut(self, receiver);
+        if let Some(ty) = implicit {
+            receiver.ty = ty;
+        }
+    }
+
     fn visit_path_mut(&mut self, path: &mut syn::Path) {
         let site = key(SourceRange::of(path));
         visit_mut::visit_path_mut(self, path);

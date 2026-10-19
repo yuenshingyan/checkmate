@@ -61,8 +61,9 @@ records measured task-007 line coverage and the unavailable branch-coverage metr
 
 - Generic local types, enclosing generic captures, and implicit generic `Self` cannot
   be promoted by replacing a bare identifier. They fail before emission.
-- Implementation-dependent operations still fail; task 009 must approve supported
-  implementations before task 011 can integrate automatic generation.
+- Implementation-dependent operations require task 009's explicit approval; see its
+  [completed conservative subset](009-implementations.md). Task 011 still must integrate
+  automatic generation and verify invocation placement.
 - `use` declarations **inside** selected code/output require additional relocation
   analysis and are rejected. Surrounding import aliases are resolved normally.
 - Local helper functions outside the selection are not copied to fake interoperability

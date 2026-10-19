@@ -469,7 +469,7 @@ fn unsupported_context_is_an_explicit_error() {
         ("mod external;", "out-of-line"),
         ("#[add_items] fn f() {}", "unsupported attribute"),
         ("#[derive(Debug)] struct S;", "unsupported attribute"),
-        ("struct S; impl S { fn f() {} }", "unsupported item"),
+        ("trait T {}", "unsupported item"),
         ("struct S; struct S;", "duplicate item"),
     ] {
         let source = ParsedSource::parse("unsupported.rs", text).unwrap();
@@ -560,6 +560,138 @@ fn declaration_visibility_on_same_line_is_position_sensitive() {
     assert_ne!(first, second);
     assert_ne!(second, third);
     assert_eq!(index.declarations[first.0].kind, DeclarationKind::Parameter);
+}
+
+#[test]
+fn impl_receivers_and_parameters_have_body_only_identity_and_capture_barriers() {
+    let (source, index) = indexed(
+        r#"
+fn outer<T>(outer: i32) {
+    struct S;
+    impl /* header */ S {
+        fn method(&self, x: /* signature */ i32) {
+            /* body */ self;
+            let closure = || { /* closure */ self; x; };
+            fn nested() { /* nested */ self; x; }
+        }
+        fn other(self) { /* other */ self; }
+        fn associated() { /* associated */ 0; }
+    }
+    /* outside */ outer;
+}
+"#,
+    );
+    let receiver = value(&source, &index, "/* body */", "self");
+    let param = value(&source, &index, "/* body */", "x");
+    for (name, id) in [("self", receiver), ("x", param)] {
+        assert_eq!(index.declarations[id.0].kind, DeclarationKind::Parameter);
+        assert_eq!(value(&source, &index, "/* closure */", name), id);
+        assert_eq!(
+            lookup(&source, &index, "/* nested */", Namespace::Value, name),
+            Lookup::ForbiddenCapture(id)
+        );
+        for marker in ["/* signature */", "/* outside */", "/* associated */"] {
+            assert_eq!(
+                lookup(&source, &index, marker, Namespace::Value, name),
+                Lookup::Missing
+            );
+        }
+    }
+    assert_ne!(receiver, value(&source, &index, "/* other */", "self"));
+    let method_scope = index.declarations[receiver.0].scope;
+    assert_eq!(index.scopes[method_scope.0].kind, ScopeKind::Function);
+    assert_eq!(
+        index.scopes[index.scopes[method_scope.0].parent.unwrap().0].kind,
+        ScopeKind::Item
+    );
+    let outer = value(&source, &index, "/* outside */", "outer");
+    for marker in ["/* header */", "/* body */"] {
+        assert_eq!(
+            lookup(&source, &index, marker, Namespace::Value, "outer"),
+            Lookup::ForbiddenCapture(outer)
+        );
+        assert!(matches!(
+            lookup(&source, &index, marker, Namespace::Type, "T"),
+            Lookup::ForbiddenCapture(_)
+        ));
+    }
+    assert!(
+        !index
+            .declarations
+            .iter()
+            .any(|decl| ["method", "other", "associated"].contains(&decl.name.as_str()))
+    );
+    assert_eq!(
+        lookup(&source, &index, "/* body */", Namespace::Value, "method"),
+        Lookup::Missing
+    );
+}
+
+#[test]
+fn impls_resolve_shadowed_local_type_names_by_identity() {
+    let (source, index) = indexed(
+        r#"
+fn f() {
+    struct S;
+    fn method() {}
+    impl S { fn method(&mut self) { /* outer */ 0; } }
+    {
+        struct S;
+        impl S { fn method(self: Box<Self>) { /* inner */ 0; } }
+    }
+    /* after */ 0;
+}
+"#,
+    );
+    let outer = found(&source, &index, "/* outer */", Namespace::Type, "S");
+    let inner = found(&source, &index, "/* inner */", Namespace::Type, "S");
+    assert_ne!(outer, inner);
+    assert_eq!(
+        found(&source, &index, "/* after */", Namespace::Type, "S"),
+        outer
+    );
+    let lexical = value(&source, &index, "/* after */", "method");
+    assert_eq!(value(&source, &index, "/* inner */", "method"), lexical);
+    assert_eq!(value(&source, &index, "/* outer */", "method"), lexical);
+}
+
+#[test]
+fn unsupported_impls_methods_attributes_and_macros_are_rejected() {
+    for implementation in [
+        "impl Trait for S {}",
+        "unsafe impl S {}",
+        "default impl S {}",
+        "impl<T> S {}",
+        "impl S where S: Trait {}",
+        "impl S<u8> {}",
+        "impl &S {}",
+        "impl (S,) {}",
+        "impl <S as Trait>::Assoc {}",
+        "impl S { const C: i32 = 1; }",
+        "impl S { type A = S; }",
+        "impl S { items!(); }",
+        "impl S { fn f<T>() {} }",
+        "impl S { fn f() where S: Trait {} }",
+        "impl S { async fn f() {} }",
+        "impl S { unsafe fn f() {} }",
+        "impl S { const fn f() {} }",
+        "impl S { extern \"C\" fn f() {} }",
+        "impl S { default fn f() {} }",
+        "#[cfg(test)] impl S {}",
+        "#[generate] impl S {}",
+        "impl S { #[cfg(test)] fn f() {} }",
+        "impl S { #[generate] fn f() {} }",
+        "impl S { fn f(#[generate] &self) {} }",
+        "impl S { fn f(#[generate] x: i32) {} }",
+        "impl S { fn f() { bindings!(); } }",
+        "impl S { fn f() { let x = expression!(); } }",
+    ] {
+        let text = format!("struct S; {implementation}");
+        let source = ParsedSource::parse("unsupported.rs", &text).unwrap();
+        assert!(ScopeIndex::build(&source).is_err(), "{implementation}");
+    }
+    indexed("struct S; #[doc = \"impl\"] impl S { #[allow(dead_code)] fn f(&self) {} }");
+    indexed("mod m { struct S; } impl crate::m::S { fn f() {} }");
 }
 
 use syn::spanned::Spanned;

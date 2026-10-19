@@ -59,11 +59,14 @@ items disappearing without `cfg(test)`. Source definitions are never edited. Def
 selected inside a snippet are lifted only out of its generated copy, avoiding a second
 nominal definition inside the generated function.
 
-Unsupported generic locals, captured context, implementation-dependent operations,
+Unsupported generic locals, captured context, unproven implementation-dependent operations,
 restricted visibility, semantic/doc-macro attributes, and `use` declarations inside
 selected code/output fail explicitly. Surrounding import aliases remain supported.
 Known name collisions fail rather than silently capturing another binding. Generated
 names are internal details, not a stable public naming API.
+
+Task 009 adds a separate [inherent-methods walkthrough](../inherent-methods/README.md)
+for the conservative supported implementation subset.
 
 See [task 008](../../docs/tasks/008-local-types.md), the
 [safety contract](../../docs/automatic-context.md), and

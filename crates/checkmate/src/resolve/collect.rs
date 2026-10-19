@@ -621,6 +621,10 @@ impl<'ast> Visit<'ast> for Collector<'_> {
         }
     }
 
+    fn visit_item_impl(&mut self, node: &'ast syn::ItemImpl) {
+        self.fail(node.span(), "implementations inside selected code/output require separate lifting; select statements after surrounding implementations");
+    }
+
     fn visit_item_mod(&mut self, node: &'ast syn::ItemMod) {
         self.fail(node.span(), "module declarations inside selected code/output require independent module context and are not supported");
     }

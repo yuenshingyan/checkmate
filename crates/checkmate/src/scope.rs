@@ -4,6 +4,7 @@
 //! unvalidated namespace candidates; opaque binding-producing syntax is rejected. A missing name
 //! means only "not in this lexical index", not "not provided by Rust's prelude".
 
+use crate::diagnostics::Result;
 mod build;
 pub(crate) mod imports;
 mod patterns;
@@ -120,7 +121,7 @@ pub(crate) struct ScopeIndex {
 }
 
 impl ScopeIndex {
-    pub fn build(source: &ParsedSource) -> syn::Result<Self> {
+    pub fn build(source: &ParsedSource) -> Result<Self> {
         build::build(source)
     }
 
@@ -129,7 +130,7 @@ impl ScopeIndex {
     pub fn build_with_pattern_constants(
         source: &ParsedSource,
         constants: &BTreeSet<(LineColumn, String)>,
-    ) -> syn::Result<Self> {
+    ) -> Result<Self> {
         build::build_with_pattern_constants(source, constants)
     }
 

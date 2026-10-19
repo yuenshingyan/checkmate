@@ -1,6 +1,7 @@
 //! Reusable paths and local type identities. No declaration is copied here.
 //! Invocation placement is an internal caller obligation until task 011 verifies it.
 
+use crate::diagnostics::{Error, Kind, Result};
 use proc_macro2::{LineColumn, TokenStream};
 use quote::quote;
 use std::collections::BTreeMap;
@@ -28,7 +29,7 @@ pub(crate) struct QualifiedPath {
 }
 
 impl QualifiedPath {
-    pub fn syntax(&self) -> syn::Result<syn::Path> {
+    pub fn syntax(&self) -> Result<syn::Path> {
         // `crate` is a path keyword, not an identifier accepted by parse_str.
         let mut text = self
             .segments
@@ -40,17 +41,18 @@ impl QualifiedPath {
                     syn::parse_str::<syn::Ident>(name)
                         .or_else(|_| syn::parse_str(&format!("r#{name}")))
                         .map(|id| id.to_string())
+                        .map_err(Error::from)
                 }
             })
-            .collect::<syn::Result<Vec<_>>>()?
+            .collect::<Result<Vec<_>>>()?
             .join("::");
         if self.absolute {
             text.insert_str(0, "::");
         }
-        syn::parse_str(&text)
+        Ok(syn::parse_str(&text)?)
     }
 
-    pub fn import_as(&self, alias: &syn::Ident) -> syn::Result<TokenStream> {
+    pub fn import_as(&self, alias: &syn::Ident) -> Result<TokenStream> {
         let path = self.syntax()?;
         Ok(quote!(use #path as #alias;))
     }
@@ -74,7 +76,7 @@ pub(crate) enum Resolved {
 impl Resolved {
     /// Base imports do not contain type/const arguments. Those stay in the input
     /// AST; generation must rename the resolved root without dropping arguments.
-    pub fn import_as(&self, alias: &syn::Ident) -> syn::Result<TokenStream> {
+    pub fn import_as(&self, alias: &syn::Ident) -> Result<TokenStream> {
         match self {
             Self::Original { base, member, .. } => {
                 let mut path = base.clone();
@@ -113,24 +115,33 @@ impl<'a> Resolver<'a> {
         index: &'a crate::scope::ScopeIndex,
         origin: &'a SourceOrigin,
         site: ReuseSite,
-    ) -> syn::Result<Self> {
+    ) -> Result<Self> {
         let actual = origin
             .package_root
             .join(&source.path)
             .canonicalize()
-            .map_err(|e| error(&format!("cannot verify original source: {e}")))?;
+            .map_err(|e| {
+                error(&format!("cannot verify original source: {e}"))
+                    .with_kind(Kind::SourceIdentity)
+            })?;
         if actual != origin.source {
-            return Err(error("source origin belongs to a different indexed file"));
+            return Err(error("source origin belongs to a different indexed file")
+                .with_kind(Kind::SourceIdentity));
         }
-        if std::fs::read_to_string(&actual).map_err(|e| error(&e.to_string()))? != source.text {
-            return Err(error(
-                "parsed source no longer matches the verified original file",
-            ));
+        if std::fs::read_to_string(&actual)
+            .map_err(|e| error(&e.to_string()).with_kind(Kind::SourceIdentity))?
+            != source.text
+        {
+            return Err(
+                error("parsed source no longer matches the verified original file")
+                    .with_kind(Kind::SourceIdentity),
+            );
         }
         if site == ReuseSite::PackageIntegrationTest && origin.target_kind != TargetKind::Library {
-            return Err(error(
-                "a binary target cannot be reused as an integration-test library",
-            ));
+            return Err(
+                error("a binary target cannot be reused as an integration-test library")
+                    .with_kind(Kind::SourceIdentity),
+            );
         }
         if origin
             .dependency_candidates
@@ -141,7 +152,7 @@ impl<'a> Resolver<'a> {
         {
             return Err(error(
                 "standard-library roots are shadowed by Cargo target/dependency names; prelude mapping is not proven",
-            ));
+            ).with_kind(Kind::SourceIdentity));
         }
         let mut resolver = Self {
             catalog: Catalog::new(source, index)?,
@@ -158,7 +169,9 @@ impl<'a> Resolver<'a> {
             let scope = index
                 .scope_at(at)
                 .ok_or_else(|| error("implementation has no lexical scope"))?;
-            let target = resolver.path(scope, &ty.path, ReferenceUse::Type, at)?;
+            let target = resolver
+                .path(scope, &ty.path, ReferenceUse::Type, at)
+                .map_err(|err| err.with_site(ReferenceOrigin::Source, SourceRange::of(&ty.path)))?;
             let (Resolved::LocalType { declaration, .. } | Resolved::Original { declaration, .. }) =
                 target
             else {
@@ -216,10 +229,14 @@ impl<'a> Resolver<'a> {
         &self,
         references: &References,
         selection: &Selection<'_>,
-    ) -> syn::Result<Vec<Resolved>> {
+    ) -> Result<Vec<Resolved>> {
         for pending in &references.deferred_operations {
             if pending.kind == DeferredKind::QualifiedTrait {
-                return Err(self.diagnostic(selection, &pending.site, &pending.description));
+                return Err(self.diagnostic(
+                    selection,
+                    &pending.site,
+                    error(&pending.description).with_kind(Kind::MethodResolution),
+                ));
             }
         }
         let resolved = references.occurrences.iter().map(|reference| {
@@ -272,8 +289,12 @@ impl<'a> Resolver<'a> {
                 };
                 self.path(scope, &path, reference.usage, at)
             };
-            resolve().map_err(|err| self.diagnostic(selection, &reference.site, &format!("`{}`: {err}", reference.path)))
-        }).collect::<syn::Result<Vec<_>>>()?;
+            resolve().map_err(|err| {
+                let message = format!("`{}`: {err}", reference.path);
+                let err = if err.subject.is_none() { err.with_subject(&reference.root, None) } else { err };
+                self.diagnostic(selection, &reference.site, err.context(message))
+            })
+        }).collect::<Result<Vec<_>>>()?;
         super::implementations::check_root_methods(self, references, &resolved, selection)?;
         Ok(resolved)
     }
@@ -294,7 +315,7 @@ impl<'a> Resolver<'a> {
             })
     }
 
-    fn self_owner(&self, at: LineColumn) -> syn::Result<Option<DeclarationId>> {
+    fn self_owner(&self, at: LineColumn) -> Result<Option<DeclarationId>> {
         if let Some(owner) = self.catalog.nominal_at(at) {
             let generics = match self.catalog.item(owner)? {
                 syn::Item::Struct(item) => &item.generics,
@@ -347,17 +368,18 @@ impl<'a> Resolver<'a> {
         &self,
         selection: &Selection<'_>,
         site: &super::ReferenceSite,
-        message: &str,
-    ) -> syn::Error {
-        error(&format!(
-            "{}:{}-{}: {:?} {}:{}: {message}",
+        failure: Error,
+    ) -> Error {
+        let message = format!(
+            "{}:{}-{}: {:?} {}:{}: {failure}",
             self.catalog.index.source_path.display(),
             selection.range.start.line,
             selection.range.end.line - 1,
             site.origin,
             site.range.start.line,
             site.range.start.column + 1
-        ))
+        );
+        failure.context(message).with_site(site.origin, site.range)
     }
 
     pub fn path(
@@ -366,7 +388,7 @@ impl<'a> Resolver<'a> {
         path: &syn::Path,
         usage: ReferenceUse,
         at: LineColumn,
-    ) -> syn::Result<Resolved> {
+    ) -> Result<Resolved> {
         let names: Vec<_> = path
             .segments
             .iter()
@@ -412,9 +434,19 @@ impl<'a> Resolver<'a> {
                 )),
                 (Ok(ty), Err(_)) => self.finish(ty),
                 (Err(_), Ok(value)) => self.finish(value),
-                (Err(ty), Err(value)) => Err(error(&format!(
-                    "unresolved type/const argument: {ty}; {value}"
-                ))),
+                (Err(ty), Err(value)) => {
+                    let message = format!("unresolved type/const argument: {ty}; {value}");
+                    // Preserve the actual leaf category. Two missing namespaces
+                    // are still an unknown identifier; a known unsupported value
+                    // takes precedence over a missing type namespace.
+                    let failure = if ty.kind == Kind::UnknownItem && value.kind != Kind::UnknownItem
+                    {
+                        value
+                    } else {
+                        ty
+                    };
+                    Err(failure.context(message))
+                }
             };
         }
         let target = self.walk(
@@ -428,7 +460,7 @@ impl<'a> Resolver<'a> {
         self.finish(target)
     }
 
-    fn finish(&self, target: Target) -> syn::Result<Resolved> {
+    fn finish(&self, target: Target) -> Result<Resolved> {
         let Target::Item(mut found) = target else {
             let Target::External(path) = target else {
                 unreachable!()
@@ -453,15 +485,21 @@ impl<'a> Resolver<'a> {
         if self.site == ReuseSite::PackageIntegrationTest
             && !self.catalog.item_is_public(found.declaration)?
         {
+            let declaration = &self.catalog.index.declarations[found.declaration.0];
             return Err(error(
                 "original declaration is not public; it cannot be copied to bypass privacy",
-            ));
+            )
+            .with_kind(Kind::InaccessibleItem)
+            .with_subject(&declaration.name, Some(declaration.kind)));
         }
         let route = if self.site == ReuseSite::SameTarget || self.catalog.public_route(&canonical) {
             canonical
         } else {
             found.routes.sort();
-            found.routes.into_iter().find(|route| self.catalog.public_route(route)).ok_or_else(|| error("original declaration has no proven public route; inaccessible module-level items are never copied"))?
+            found.routes.into_iter().find(|route| self.catalog.public_route(route)).ok_or_else(|| {
+                let declaration = &self.catalog.index.declarations[found.declaration.0];
+                error("original declaration has no proven public route; inaccessible module-level items are never copied").with_kind(Kind::InaccessibleItem).with_subject(&declaration.name, Some(declaration.kind))
+            })?
         };
         let mut segments = match self.site {
             ReuseSite::SameTarget => vec!["crate".into()],
@@ -486,7 +524,7 @@ impl<'a> Resolver<'a> {
         usage: ReferenceUse,
         at: LineColumn,
         imports: &mut Vec<ImportId>,
-    ) -> syn::Result<Target> {
+    ) -> Result<Target> {
         let head = names
             .first()
             .ok_or_else(|| error("empty declaration path"))?;
@@ -557,7 +595,9 @@ impl<'a> Resolver<'a> {
                 } else {
                     Err(error(&format!(
                         "unknown declaration `{head}`; no indexed binding or proven prelude mapping"
-                    )))
+                    ))
+                    .with_kind(Kind::UnknownItem)
+                    .with_subject(head, None))
                 }
             }
         }
@@ -570,7 +610,7 @@ impl<'a> Resolver<'a> {
         usage: ReferenceUse,
         at: LineColumn,
         imports: &mut Vec<ImportId>,
-    ) -> syn::Result<Target> {
+    ) -> Result<Target> {
         let head = names
             .first()
             .ok_or_else(|| error("a module is not a reusable type/value declaration"))?;
@@ -586,9 +626,11 @@ impl<'a> Resolver<'a> {
             Lookup::Import(id) if self.catalog.index.imports[id.0].scope == scope => {
                 self.resolve_import(id, &names[1..], usage, imports)
             }
-            _ => Err(error(&format!(
-                "unknown member `{head}` in the indexed module"
-            ))),
+            _ => Err(
+                error(&format!("unknown member `{head}` in the indexed module"))
+                    .with_kind(Kind::UnknownItem)
+                    .with_subject(head, None),
+            ),
         }
     }
 
@@ -599,7 +641,7 @@ impl<'a> Resolver<'a> {
         usage: ReferenceUse,
         at: LineColumn,
         imports: &mut Vec<ImportId>,
-    ) -> syn::Result<Target> {
+    ) -> Result<Target> {
         let item = self.catalog.item(id)?;
         if let syn::Item::Mod(_) = item {
             return self.in_module(self.catalog.module_scope(id)?, suffix, usage, at, imports);
@@ -675,7 +717,7 @@ impl<'a> Resolver<'a> {
         suffix: &[String],
         usage: ReferenceUse,
         imports: &mut Vec<ImportId>,
-    ) -> syn::Result<Target> {
+    ) -> Result<Target> {
         if imports.contains(&id) {
             return Err(error(
                 "cyclic import aliases while resolving original declarations",
@@ -722,7 +764,7 @@ impl<'a> Resolver<'a> {
         Ok(target)
     }
 
-    fn external(&self, names: &[String], usage: ReferenceUse) -> syn::Result<Target> {
+    fn external(&self, names: &[String], usage: ReferenceUse) -> Result<Target> {
         if !names
             .first()
             .is_some_and(|root| self.origin.extern_candidates.contains(root))

@@ -1,4 +1,5 @@
 use super::*;
+use crate::diagnostics::Result;
 use crate::resolve::collect_references;
 use crate::resolve::declarations::ReuseSite;
 use crate::resolve::declarations::tests::Fixture;
@@ -9,7 +10,7 @@ fn fixture(items: &str) -> Fixture {
     ))
 }
 
-fn graph(fixture: &Fixture, names: &[&str]) -> syn::Result<Graph> {
+fn graph(fixture: &Fixture, names: &[&str]) -> Result<Graph> {
     let resolver = fixture.resolver(ReuseSite::SameTarget);
     let at = fixture.position("let selected");
     let roots = names
@@ -22,7 +23,7 @@ fn graph(fixture: &Fixture, names: &[&str]) -> syn::Result<Graph> {
                 at,
             )
         })
-        .collect::<syn::Result<Vec<_>>>()?;
+        .collect::<Result<Vec<_>>>()?;
     Graph::from_roots(
         &resolver,
         roots,

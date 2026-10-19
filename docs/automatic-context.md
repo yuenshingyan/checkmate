@@ -126,6 +126,11 @@ unknown declarations, unknown module paths, unsafe promotion, macros/attributes,
 unsupported inference. Rust-generated borrow/type/privacy diagnostics remain rustc's
 responsibility; do not promise to remap every compiler span.
 
+Task 010 implements this as a [test-gated structured diagnostic boundary](diagnostics.md):
+reports include snippet identity, typed categories, optional subjects/sites/chains, bounded
+UTF-8-safe output, and remedies. Public integration remains task 011; existing macro
+errors have not been replaced or relabeled.
+
 Context baselines are a separate versioned extension in task 012. Existing snippet
 snapshots remain readable. Discovered declaration contents and dependency mappings
 must become reviewable; stable identities must not depend on an absolute checkout

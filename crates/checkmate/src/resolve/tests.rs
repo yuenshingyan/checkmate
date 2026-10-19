@@ -1,4 +1,5 @@
 use super::*;
+use crate::diagnostics::Result;
 use crate::scope::DeclarationKind;
 
 struct Analysis {
@@ -11,7 +12,7 @@ fn source(prelude: &str, parameters: &str, before: &str, body: &str) -> String {
     format!("{prelude}\nfn original({parameters}) {{\n{before}\n// start\n{body}\n// end\n}}\n")
 }
 
-fn analyze(text: &str, signature: &str, output: Option<&str>) -> syn::Result<Analysis> {
+fn analyze(text: &str, signature: &str, output: Option<&str>) -> Result<Analysis> {
     let source = ParsedSource::parse("src/example.rs", text)?;
     let index = ScopeIndex::build(&source)?;
     let start = text.lines().position(|line| line == "// start").unwrap() + 2;

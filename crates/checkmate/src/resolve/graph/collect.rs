@@ -1,3 +1,4 @@
+use crate::diagnostics::{Error, Kind, Origin, Result};
 use std::collections::BTreeSet;
 
 use quote::ToTokens;
@@ -14,7 +15,7 @@ use crate::source::ast::SourceRange;
 pub(super) fn dependencies(
     resolver: &Resolver<'_>,
     owner: DeclarationId,
-) -> syn::Result<Vec<Dependency>> {
+) -> Result<Vec<Dependency>> {
     let item = resolver.catalog.item(owner)?;
     let (generics, kind) = match item {
         syn::Item::Struct(item) => (&item.generics, LocalKind::Struct),
@@ -27,9 +28,12 @@ pub(super) fn dependencies(
         }
     };
     if !generics.params.is_empty() {
-        return Err(error(
+        return Err(Error::new(
+            item.span(),
             "generic local declarations are outside the initial promotion subset",
-        ));
+        )
+        .with_kind(Kind::UnsafePromotion)
+        .with_site(Origin::Source, SourceRange::of(item)));
     }
     let mut visitor = Collector {
         resolver,
@@ -58,18 +62,26 @@ struct Collector<'a, 'source> {
     expansion: bool,
     lifetimes: Vec<BTreeSet<String>>,
     dependencies: Vec<Dependency>,
-    error: Option<syn::Error>,
+    error: Option<Error>,
 }
 
 impl Collector<'_, '_> {
     fn fail(&mut self, node: &impl Spanned, message: &str) {
+        self.fail_error(
+            node,
+            Error::new(node.span(), message).with_kind(Kind::UnsafePromotion),
+        );
+    }
+
+    fn fail_error(&mut self, node: &impl Spanned, failure: Error) {
         if self.error.is_none() {
             let at = node.span().start();
-            self.error = Some(error(&format!(
-                "source {}:{}: {message}",
-                at.line,
-                at.column + 1
-            )));
+            let message = format!("source {}:{}: {failure}", at.line, at.column + 1);
+            self.error = Some(
+                failure
+                    .context(message)
+                    .with_site(Origin::Source, SourceRange::of(node)),
+            );
         }
     }
 
@@ -108,7 +120,8 @@ impl Collector<'_, '_> {
                 Some(target)
             }
             Err(err) => {
-                self.fail(path, &format!("{}: {err}", path.to_token_stream()));
+                let message = format!("{}: {err}", path.to_token_stream());
+                self.fail_error(path, err.context(message));
                 None
             }
         }

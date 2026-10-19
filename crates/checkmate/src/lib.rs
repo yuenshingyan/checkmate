@@ -12,6 +12,8 @@ mod source;
 
 // Automatic-context foundations are not enabled in the public macro until task 011.
 #[cfg(test)]
+mod diagnostics;
+#[cfg(test)]
 mod resolve;
 #[cfg(test)]
 mod scope;

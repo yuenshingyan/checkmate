@@ -5,6 +5,7 @@
 //! one-based lines and zero-based Unicode character columns, not byte offsets.
 //! Span ends are used as exclusive positions. We never use columns to slice UTF-8.
 
+use crate::diagnostics::{Error, Kind, Origin, Result};
 use std::path::PathBuf;
 
 use proc_macro2::{LineColumn, Span};
@@ -67,12 +68,12 @@ pub(crate) struct Selection<'a> {
 }
 
 impl ParsedSource {
-    pub fn parse(path: impl Into<PathBuf>, text: impl Into<String>) -> syn::Result<Self> {
+    pub fn parse(path: impl Into<PathBuf>, text: impl Into<String>) -> Result<Self> {
         let path = path.into();
         let text = text.into();
         let file = syn::parse_file(&text).map_err(|error| {
             let at = error.span().start();
-            syn::Error::new(
+            Error::new(
                 error.span(),
                 format!(
                     "{}:{}:{}: automatic context requires a complete Rust source file: {error}",
@@ -81,16 +82,19 @@ impl ParsedSource {
                     at.column + 1,
                 ),
             )
+            .with_kind(Kind::Syntax)
+            .with_site(Origin::Source, SourceRange::from_span(error.span()))
         })?;
         Ok(Self { path, text, file })
     }
 
-    pub fn select(&self, start: usize, end: usize) -> syn::Result<Selection<'_>> {
+    pub fn select(&self, start: usize, end: usize) -> Result<Selection<'_>> {
         let fail = |message: &str| {
-            syn::Error::new(
+            Error::new(
                 Span::call_site(),
                 format!("{}:{start}-{end}: {message}", self.path.display(),),
             )
+            .with_kind(Kind::Selection)
         };
         if start == 0 || end < start || end > self.text.lines().count() {
             return Err(fail("invalid inclusive line range"));

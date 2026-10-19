@@ -1,5 +1,6 @@
 //! Explicit imports and source-relative path provenance, not visibility or type proof.
 
+use crate::diagnostics::{Error, Kind, Result};
 use proc_macro2::{LineColumn, Span};
 use quote::ToTokens;
 use syn::spanned::Spanned;
@@ -88,7 +89,7 @@ impl super::build::Builder {
 
 type Leaf = (syn::Ident, Vec<String>, bool);
 
-fn flatten(tree: &syn::UseTree, prefix: Vec<String>, leaves: &mut Vec<Leaf>) -> syn::Result<()> {
+fn flatten(tree: &syn::UseTree, prefix: Vec<String>, leaves: &mut Vec<Leaf>) -> Result<()> {
     match tree {
         syn::UseTree::Path(node) => {
             let mut path = prefix;
@@ -99,9 +100,9 @@ fn flatten(tree: &syn::UseTree, prefix: Vec<String>, leaves: &mut Vec<Leaf>) -> 
             let is_self = node.ident == "self";
             let mut path = prefix;
             let alias = if is_self {
-                let name = path.last().ok_or_else(|| {
-                    syn::Error::new(node.span(), "bare self import has no target")
-                })?;
+                let name = path
+                    .last()
+                    .ok_or_else(|| Error::new(node.span(), "bare self import has no target"))?;
                 syn::parse_str::<syn::Ident>(name)?
             } else {
                 path.push(node.ident.to_string());
@@ -111,7 +112,7 @@ fn flatten(tree: &syn::UseTree, prefix: Vec<String>, leaves: &mut Vec<Leaf>) -> 
         }
         syn::UseTree::Rename(node) => {
             if node.rename == "_" {
-                return Err(syn::Error::new(
+                return Err(Error::new(
                     node.span(),
                     "underscore imports may affect trait resolution and are not supported",
                 ));
@@ -122,10 +123,7 @@ fn flatten(tree: &syn::UseTree, prefix: Vec<String>, leaves: &mut Vec<Leaf>) -> 
                 path.push(node.ident.to_string());
             }
             if path.is_empty() {
-                return Err(syn::Error::new(
-                    node.span(),
-                    "bare self import has no target",
-                ));
+                return Err(Error::new(node.span(), "bare self import has no target"));
             }
             leaves.push((node.rename.clone(), path, is_self));
         }
@@ -135,7 +133,7 @@ fn flatten(tree: &syn::UseTree, prefix: Vec<String>, leaves: &mut Vec<Leaf>) -> 
             }
         }
         syn::UseTree::Glob(node) => {
-            return Err(syn::Error::new(
+            return Err(Error::new(
                 node.span(),
                 "glob imports require namespace expansion and are not supported",
             ));
@@ -145,7 +143,7 @@ fn flatten(tree: &syn::UseTree, prefix: Vec<String>, leaves: &mut Vec<Leaf>) -> 
 }
 
 impl ScopeIndex {
-    pub fn module_path(&self, mut scope: ScopeId) -> syn::Result<Vec<String>> {
+    pub fn module_path(&self, mut scope: ScopeId) -> Result<Vec<String>> {
         let mut path = Vec::new();
         loop {
             let current = &self.scopes[scope.0];
@@ -155,7 +153,7 @@ impl ScopeIndex {
                     self.scopes[parent.0].kind,
                     ScopeKind::File | ScopeKind::Module
                 ) {
-                    return Err(syn::Error::new(
+                    return Err(Error::new(
                         Span::call_site(),
                         "block-local module has no reusable crate-relative path",
                     ));
@@ -169,7 +167,7 @@ impl ScopeIndex {
                             && current.range.contains(declaration.range)
                     })
                     .ok_or_else(|| {
-                        syn::Error::new(
+                        Error::new(
                             Span::call_site(),
                             "module declaration is missing from the lexical index",
                         )
@@ -185,27 +183,29 @@ impl ScopeIndex {
         Ok(path)
     }
 
-    fn verify_origin(&self, origin: &SourceOrigin) -> syn::Result<()> {
+    fn verify_origin(&self, origin: &SourceOrigin) -> Result<()> {
         let source = origin
             .package_root
             .join(&self.source_path)
             .canonicalize()
             .map_err(|e| {
-                syn::Error::new(
+                Error::new(
                     Span::call_site(),
                     format!("cannot verify indexed source identity: {e}"),
                 )
+                .with_kind(Kind::SourceIdentity)
             })?;
         if source != origin.source {
-            return Err(syn::Error::new(
+            return Err(Error::new(
                 Span::call_site(),
                 "source origin belongs to a different indexed file",
-            ));
+            )
+            .with_kind(Kind::SourceIdentity));
         }
         Ok(())
     }
 
-    pub fn import_origin(&self, id: ImportId, origin: &SourceOrigin) -> syn::Result<PathOrigin> {
+    pub fn import_origin(&self, id: ImportId, origin: &SourceOrigin) -> Result<PathOrigin> {
         self.verify_origin(origin)?;
         self.expand_import(id, origin, &mut Vec::new())
     }
@@ -217,14 +217,14 @@ impl ScopeIndex {
         namespace: Namespace,
         at: LineColumn,
         origin: &SourceOrigin,
-    ) -> syn::Result<PathOrigin> {
+    ) -> Result<PathOrigin> {
         self.verify_origin(origin)?;
         if path
             .segments
             .iter()
             .any(|segment| !matches!(segment.arguments, syn::PathArguments::None))
         {
-            return Err(syn::Error::new(
+            return Err(Error::new(
                 path.span(),
                 "generic path normalization requires further type analysis",
             ));
@@ -251,7 +251,7 @@ impl ScopeIndex {
         id: ImportId,
         origin: &SourceOrigin,
         visiting: &mut Vec<ImportId>,
-    ) -> syn::Result<PathOrigin> {
+    ) -> Result<PathOrigin> {
         let import = &self.imports[id.0];
         if visiting.contains(&id) {
             let mut chain: Vec<_> = visiting
@@ -259,7 +259,7 @@ impl ScopeIndex {
                 .map(|id| self.imports[id.0].alias.as_str())
                 .collect();
             chain.push(&import.alias);
-            return Err(syn::Error::new(
+            return Err(Error::new(
                 Span::call_site(),
                 format!("cyclic import aliases: {}", chain.join(" -> ")),
             ));
@@ -275,7 +275,7 @@ impl ScopeIndex {
         );
         visiting.pop();
         result.map_err(|error| {
-            syn::Error::new(
+            Error::new(
                 error.span(),
                 format!(
                     "{}:{}: import `{}`: {error}",
@@ -295,13 +295,13 @@ impl ScopeIndex {
         at: LineColumn,
         origin: &SourceOrigin,
         visiting: &mut Vec<ImportId>,
-    ) -> syn::Result<PathOrigin> {
+    ) -> Result<PathOrigin> {
         let segments: Vec<_> = path
             .segments
             .iter()
             .map(|name| canonical(name).to_owned())
             .collect();
-        let fail = |message: &str| syn::Error::new(Span::call_site(), message);
+        let fail = |message: &str| Error::new(Span::call_site(), message);
         let head = segments.first().ok_or_else(|| fail("empty path"))?;
         let root_len = if head == "super" {
             segments.iter().take_while(|name| *name == "super").count()

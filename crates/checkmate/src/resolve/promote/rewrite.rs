@@ -1,12 +1,17 @@
 //! Span-keyed rewriting of resolved syntax, never a search-and-replace of names.
 
+use crate::diagnostics::{Error, Result};
 use std::collections::{BTreeMap, BTreeSet};
 
 use proc_macro2::LineColumn;
 use quote::ToTokens;
 use syn::visit_mut::{self, VisitMut};
 
-use crate::resolve::catalog::{error, item_ident};
+use crate::diagnostics::Kind;
+use crate::resolve::catalog::item_ident;
+fn error(message: &str) -> Error {
+    crate::resolve::catalog::error(message).with_kind(Kind::UnsafePromotion)
+}
 use crate::resolve::declarations::Resolved;
 use crate::resolve::graph::NodeId;
 use crate::source::ast::SourceRange;
@@ -19,7 +24,7 @@ fn key(range: SourceRange) -> Key {
 pub(super) struct Rewriter<'a> {
     names: &'a BTreeMap<NodeId, syn::Ident>,
     pending: BTreeMap<Key, Resolved>,
-    failure: Option<syn::Error>,
+    failure: Option<Error>,
 }
 
 impl<'a> Rewriter<'a> {
@@ -31,18 +36,19 @@ impl<'a> Rewriter<'a> {
         }
     }
 
-    pub fn add(&mut self, range: SourceRange, target: Resolved) -> syn::Result<()> {
+    pub fn add(&mut self, range: SourceRange, target: Resolved) -> Result<()> {
         if let Some(previous) = self.pending.insert(key(range), target.clone())
             && previous != target
         {
-            return Err(error(
-                "one reference location has conflicting declaration identities",
-            ));
+            return Err(
+                error("one reference location has conflicting declaration identities")
+                    .with_kind(Kind::InternalInvariant),
+            );
         }
         Ok(())
     }
 
-    fn replace(&self, path: &mut syn::Path, target: Resolved) -> syn::Result<()> {
+    fn replace(&self, path: &mut syn::Path, target: Resolved) -> Result<()> {
         let (id, member) = match target {
             Resolved::Binding => return Ok(()),
             Resolved::Original {
@@ -96,14 +102,15 @@ impl<'a> Rewriter<'a> {
         Ok(())
     }
 
-    pub fn finish(self) -> syn::Result<()> {
+    pub fn finish(self) -> Result<()> {
         if let Some(failure) = self.failure {
             return Err(failure);
         }
         if !self.pending.is_empty() {
             return Err(error(
                 "not every resolved reference was rewritten; refusing a partial promotion plan",
-            ));
+            )
+            .with_kind(Kind::InternalInvariant));
         }
         Ok(())
     }
@@ -179,10 +186,7 @@ impl VisitMut for Rewriter<'_> {
     }
 }
 
-pub(super) fn remove_promoted(
-    function: &mut syn::ItemFn,
-    pending: BTreeSet<Key>,
-) -> syn::Result<()> {
+pub(super) fn remove_promoted(function: &mut syn::ItemFn, pending: BTreeSet<Key>) -> Result<()> {
     struct Remove {
         pending: BTreeSet<Key>,
     }

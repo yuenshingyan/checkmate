@@ -1,5 +1,6 @@
 //! Pattern binding collection, including or-pattern consistency and constants.
 
+use crate::diagnostics::{Error, Kind, Result};
 use std::collections::BTreeMap;
 
 use proc_macro2::LineColumn;
@@ -35,7 +36,7 @@ impl Builder {
         }
     }
 
-    fn pattern_names(&self, pattern: &syn::Pat) -> syn::Result<Names> {
+    fn pattern_names(&self, pattern: &syn::Pat) -> Result<Names> {
         let mut result = Names::new();
         match pattern {
             syn::Pat::Ident(node) => {
@@ -60,7 +61,7 @@ impl Builder {
                         Some(self.index.declarations[id.0].kind)
                     }
                     Lookup::Import(_) => {
-                        return Err(syn::Error::new(
+                        return Err(Error::new(
                             node.span(),
                             format!(
                                 "pattern `{ident}` may be an imported constant or constructor; target-kind resolution is required before inferring a binding"
@@ -70,7 +71,7 @@ impl Builder {
                     Lookup::Missing => None,
                 };
                 if existing.is_none() && matches!(ident.as_str(), "None" | "Some" | "Ok" | "Err") {
-                    return Err(syn::Error::new(
+                    return Err(Error::new(
                         node.span(),
                         format!(
                             "unresolved prelude constructor `{ident}` in pattern; use a qualified path until import/prelude resolution is available"
@@ -95,7 +96,7 @@ impl Builder {
                                 | DeclarationKind::ConstParameter
                         )
                     {
-                        return Err(syn::Error::new(
+                        return Err(Error::new(
                             node.span(),
                             format!(
                                 "binding `{ident}` conflicts with a constant, static, or constructor"
@@ -129,7 +130,7 @@ impl Builder {
                                 })
                             })
                         {
-                            return Err(syn::Error::new(
+                            return Err(Error::new(
                                 node.span(),
                                 "or-pattern alternatives must bind the same names in the same modes",
                             ));
@@ -166,20 +167,20 @@ impl Builder {
             | syn::Pat::Path(_)
             | syn::Pat::Range(_) => {}
             _ => {
-                return Err(syn::Error::new(
+                return Err(Error::new(
                     pattern.span(),
                     "unsupported pattern form (macros, inline consts, or opaque syntax); no bindings were inferred",
-                ));
+                ).with_kind(if matches!(pattern, syn::Pat::Macro(_)) { Kind::Macro } else { Kind::UnsupportedContext }));
             }
         }
         Ok(result)
     }
 }
 
-fn merge(into: &mut Names, other: Names) -> syn::Result<()> {
+fn merge(into: &mut Names, other: Names) -> Result<()> {
     for (name, binding) in other {
         if into.contains_key(&name) {
-            return Err(syn::Error::new(
+            return Err(Error::new(
                 binding.ident.span(),
                 format!("duplicate binding `{name}` in pattern"),
             ));

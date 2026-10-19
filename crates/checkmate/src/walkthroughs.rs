@@ -2,6 +2,7 @@
 //! example source/config used by public or internal-only walkthroughs; they do not
 //! add a public API or pretend that `context = "auto"` is available.
 
+use crate::diagnostics::Result;
 use std::{fs, path::PathBuf};
 
 use proc_macro2::Span;
@@ -20,6 +21,7 @@ struct Example {
     source: ParsedSource,
     index: ScopeIndex,
     args: Args,
+    snippet: String,
 }
 
 impl Example {
@@ -45,10 +47,11 @@ impl Example {
             source,
             index,
             args: resolved.args,
+            snippet: snippet.value(),
         }
     }
 
-    fn analyze(&self, signature: &Signature, output: Option<&Expr>) -> syn::Result<References> {
+    fn analyze(&self, signature: &Signature, output: Option<&Expr>) -> Result<References> {
         let selection = self.source.select(
             self.args.start.base10_parse()?,
             self.args.end.base10_parse()?,
@@ -294,17 +297,32 @@ fn missing_input_has_an_actionable_error() {
     let error = example
         .analyze(&signature, example.args.output.as_ref())
         .err()
-        .expect("name was not supplied")
-        .to_string();
-    assert!(error.contains("required input `name`"));
+        .expect("name was not supplied");
+    assert_eq!(error.kind, crate::diagnostics::Kind::MissingInput);
+    assert!(error.to_string().contains("required input `name`"));
     let range = format!(
         "{}:{}-{}",
         example.args.module.value(),
         example.args.start,
         example.args.end
     );
-    assert!(error.contains(&range));
-    println!("{error}");
+    assert!(error.to_string().contains(&range));
+    let report = error.render(
+        &crate::diagnostics::Request {
+            snippet: &example.snippet,
+            path: &example.source.path,
+            start: example.args.start.base10_parse().unwrap(),
+            end: example.args.end.base10_parse().unwrap(),
+        },
+        &example.source.text,
+        None,
+    );
+    assert!(report.contains("CM004") && report.contains("snippet: build_user"));
+    assert_eq!(
+        fs::read_to_string(example.root.join(&example.source.path)).unwrap(),
+        example.source.text
+    );
+    println!("{report}");
 }
 
 #[test]

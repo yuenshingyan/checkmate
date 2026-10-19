@@ -31,6 +31,7 @@ All paths below are inside `crates/checkmate/src/`.
 | `resolve/catalog.rs`, `resolve/declarations.rs` | Test-gated original-item identities, namespace-aware reusable paths/imports, local-type IDs, conservative access checks |
 | `resolve/graph.rs`, `resolve/graph/collect.rs` | Test-gated deterministic transitive dependencies, recursive type/alias validation, dependency-chain errors |
 | `resolve/implementations.rs`, `resolve/implementations/methods.rs` | Test-gated inherent implementation dependencies and conservative owned-receiver dispatch checks |
+| `diagnostics.rs` | Test-gated structured categories, source/generated sites, subjects/chains, bounded reports, and explicit invocation-anchored conversion |
 | `resolve/promote.rs`, `resolve/promote/rewrite.rs` | Test-gated local-type promotion plans, unique names, identity-aware AST rewriting, and test-only emission |
 | `snapshot.rs` | Compare selected source against a reviewed baseline; report first mismatch |
 | `generate.rs` | Signature parsing, inclusive line selection, snapshot validation, body parsing, token emission |
@@ -81,6 +82,9 @@ captured or inferred. Ordinary rustc type, ownership, and visibility checks stil
   unsupported contexts, and the actual inherent-methods example source.
 - `src/resolve/graph/properties.rs`: bounded generated graph/source properties checked
   against independent oracles; see [coverage and properties](coverage.md).
+- `src/diagnostics/tests.rs`, `src/diagnostics/integration.rs`: bounded Unicode/control-safe
+  reports, actual resolver failure paths, 501-node chains, preserved categories/sites,
+  and read-only failure behavior; see [diagnostics](diagnostics.md).
 - `src/walkthroughs.rs`: nine repository-only unit tests that print and assert internal
   analysis of `examples/struct-return`, `examples/local-types`, and `examples/inherent-methods` source/config. See the
   [walkthrough guide](../examples/struct-return/README.md).
@@ -92,7 +96,7 @@ boundary. The [automatic-context backlog](tasks/README.md) describes new source 
 reference-resolution, and dependency-graph passes. Whole-file source selection and
 lexical scope/import indexing, source-root mapping, reference collection, and original
 declaration resolution, dependency graphs, local-type promotion, and a conservative
-inherent-implementation subset are implemented and tested, but remain test-gated until
+inherent-implementation subset, and structured diagnostics are implemented and tested, but remain test-gated until
 task 011 integrates the opt-in pipeline.
 
 The lexical index distinguishes hoisted items from position-dependent locals and
@@ -174,6 +178,14 @@ and generated receiver identities for source calls. Borrowed/autoderef/trait dis
 not inferred. Bare tuple constructors are function items, not owned result values. See
 [the precise implementation subset](tasks/009-implementations.md). Receiver shorthand
 stays shorthand after rewriting; selected/output impls fail rather than being duplicated.
+
+Internal analysis APIs return boxed structured errors, preserving typed categories,
+identifier/declaration subjects, precise source/generated sites, and dependency chains
+through wrappers. A reporting request supplies snippet identity, file, and selected range.
+Reports are capped at 8 KiB with bounded Unicode-safe previews and escaped controls.
+Generated signature/output positions are never previewed using original-file text.
+The explicit conversion to a compile error takes the invocation span; ordinary rustc
+type/borrow/privacy errors are not remapped. Public wiring remains task 011.
 
 All planned items are test-gated. Copied structs/enums are explicitly recorded as new
 nominal identities; aliases follow their targets, and reusable originals are never copied.

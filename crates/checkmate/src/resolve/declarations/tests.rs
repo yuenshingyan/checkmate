@@ -1,4 +1,5 @@
 use super::*;
+use crate::diagnostics::Result;
 use crate::resolve::collect_references;
 use crate::scope::ScopeIndex;
 use quote::ToTokens;
@@ -59,7 +60,7 @@ impl Fixture {
         usage: ReferenceUse,
         needle: &str,
         site: ReuseSite,
-    ) -> syn::Result<Resolved> {
+    ) -> Result<Resolved> {
         let at = self.position(needle);
         self.resolver(site).path(
             self.index.scope_at(at).unwrap(),

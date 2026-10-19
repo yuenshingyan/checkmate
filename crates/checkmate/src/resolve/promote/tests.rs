@@ -1,3 +1,4 @@
+use crate::diagnostics::Result;
 mod implementations;
 
 use std::{collections::BTreeSet, fs, process::Command};
@@ -12,7 +13,7 @@ fn plan(
     end: &str,
     signature: &str,
     output: Option<&str>,
-) -> syn::Result<PromotionPlan> {
+) -> Result<PromotionPlan> {
     plan_reserved(f, start, end, signature, output, &BTreeSet::new())
 }
 
@@ -23,7 +24,7 @@ fn plan_reserved(
     signature: &str,
     output: Option<&str>,
     reserved: &BTreeSet<String>,
-) -> syn::Result<PromotionPlan> {
+) -> Result<PromotionPlan> {
     let selection = f
         .source
         .select(f.position(start).line, f.position(end).line)?;

@@ -1,11 +1,12 @@
 # Usage guide
 
-[Project overview](../README.md) · [Architecture](architecture.md) · [Planned tasks](tasks/README.md)
+[Project overview](../README.md) · [Architecture](architecture.md) · [Milestone and deferred work](tasks/README.md)
 
 Turn an unmodified range of Rust source lines into a test-only function. No markers,
 attributes, or wrappers need to be added to the original snippet.
 
-For runnable demonstrations, see the [example index](../examples/README.md) and
+Start with the [complete automatic workflow](../examples/automatic-context/README.md),
+or see the [example index](../examples/README.md) and
 [struct-return walkthrough](../examples/struct-return/README.md). The latter separately
 distinguishes ordinary extraction, public automatic mode, and internal analysis walkthroughs.
 
@@ -39,6 +40,21 @@ fn adds_nonnegative_inputs() {
 For a unit-test source file, gate the entire file with `#![cfg(test)]`, as in
 [`examples/basic/src/tests.rs`](../examples/basic/src/tests.rs). Integration tests
 under a package's `tests/` directory are already test-only.
+
+## Choose a workflow
+
+- **Ordinary extraction (omit `context`)**: supply any required context in the test
+  scope yourself. Use this for standalone statement fixtures, binary sources, or
+  context outside automatic discovery's supported subset. Existing inline/config
+  definitions and source snapshots keep their behavior.
+- **Automatic context (`context = "auto"`)**: discover supported declarations from a
+  verified library root, invoked literally at an integration-test crate root. This
+  saves manual declaration plumbing, not test design or input typing.
+
+In both modes you choose the range, explicit typed inputs, output, and assertions.
+Discovery does not run earlier initializers, capture runtime values, infer a full
+signature, or generate tests. All shell commands below run from the **repository
+root**; macro/config path bases are specified separately.
 
 ## Inline options
 
@@ -119,32 +135,56 @@ workspace root. Users still write their own tests.
 
 ## Automatic context (opt-in)
 
-Requires Rust 1.88+ and a normal Cargo build. In a **crate-root integration-test file**
-(e.g. `tests/automatic.rs`), invoke the macro with its literal, fully qualified path:
+Requires Rust 1.88+ and a normal Cargo build. The runnable
+[automatic-context example](../examples/automatic-context/tests/automatic.rs) uses a
+literal qualified call at the root of `examples/automatic-context/tests/automatic.rs`:
 
 ```rust,ignore
-checkmate::extract_fn! {
-    fn_sig = "fn automatic_user(name: String, active: bool) -> Account",
-    module = "src/lib.rs",
-    start = 17,
-    end = 20,
-    output = user,
-    snapshot = "snapshots/user.rs",
-    context = "auto",
-}
+checkmate::extract_fn!(config = "metadata/snippets.toml", snippet = "invoice");
 ```
 
-This is the runnable [struct example](../examples/struct-return/tests/automatic.rs).
-It returns the original library `models::User` without importing `Account` manually.
-For TOML, add `context = "auto"` to a snippet definition and use
-`checkmate::extract_fn!(config = "automatic.toml", snippet = "build_user");` at the
-same verified location. See [local types](../examples/local-types/README.md) and
-[inherent methods](../examples/inherent-methods/README.md).
+This fragment is exercised in the workspace example, not as a standalone doctest.
+The config path is relative to that package's manifest. Its
+[`metadata/snippets.toml`](../examples/automatic-context/metadata/snippets.toml) contains:
 
-The initial public boundary is intentionally narrower than the internal resolver:
+```toml
+[snippets.invoice]
+context = "auto"
+fn_sig = "fn extracted_invoice(total: u64, quantity: u32) -> Invoice"
+module = "../src/lib.rs"
+start = 8
+end = 11
+output = "invoice"
+snapshot = "../snapshots/invoice.rs"
+context_report = "invoice_context"
+context_snapshot = "../snapshots/invoice.context.toml"
+```
+
+These three file paths are **config-directory-relative**, not repository-relative.
+The selected constructor in [`src/lib.rs`](../examples/automatic-context/src/lib.rs)
+is lines 8–11; the earlier `total = u64::from(unit_price) * u64::from(quantity)`
+is not selected or executed. `Invoice { total: u64, items: u32 }` is an accessible
+original library type: a test assigns the result to `checkmate_auto_example::Invoice`.
+`extracted_invoice(999, 0)` retains total `999`, whereas original `invoice(7, 0)`
+computes `0`. Other tests compare original execution with matching explicit inputs.
+The same integration test has an inline `invoice_fields(total: u64, quantity: u32)
+-> (u64, u32)` extraction with `output = (invoice.total, invoice.items)`.
+
+```sh
+cargo test -p checkmate-auto-example
+```
+
+This package has no binary; use tests, not `cargo run`. For **copied** function-local
+nominal types instead, see [local types](../examples/local-types/README.md).
+The [struct-return](../examples/struct-return/README.md) and
+[inherent-methods](../examples/inherent-methods/README.md) examples cover more cases.
+
+The public boundary is intentionally narrower than the internal resolver:
 
 - The source must be the invoking package's **verified library root**, conventional or
-  explicitly declared in Cargo. Arbitrary module/fixture files and binary roots fail.
+  explicitly declared in Cargo, with an explicit edition of 2018, 2021, or 2024.
+  Workspace-inherited editions are not currently proven. Arbitrary module/fixture
+  files and binary roots fail.
 - The caller must be the unique Cargo integration-test root, matched using compiler
   file/position/package/crate metadata and the manifest/target layout. Conventional
   tests and explicit `[[test]]` paths are supported. Same-target unit-test modules,
@@ -183,6 +223,50 @@ explicit inspection and manual baseline creation. See the
 [format, workflow, and terminal-graph limits](context-snapshots.md); a matching baseline
 is not proof of whole-program semantic equivalence.
 
+### Supported and deferred context
+
+| Context | Supported boundary / deferred behavior |
+| --- | --- |
+| Selection and inputs | Complete statements/tail expression in one block; surrounding values require explicit typed parameters. No initializer execution or full inference. |
+| Accessible same-file originals | Reuse proven paths for structs/enums/aliases/functions/constants; preserve identity and privacy, never copy private originals to bypass access. |
+| Function-local declarations | Copy self-contained non-generic structs/enums with **new nominal identity**; aliases remain transparent to rewritten targets. Generic captures and dependent const analysis are deferred. |
+| Imports and paths | Resolve known explicit imports/aliases and inline modules. Required globs, ambiguous routes, and out-of-line dependency discovery are unsupported. |
+| Standard/external paths | Only known unshadowed prelude mappings are proven. Supporting `Box`/`Vec` types does not imply support for `Box::new`/`Vec::new` discovery. Matching nonstandard Cargo aliases alone does not prove cross-target dependency identity. |
+| Inherent methods | Check all methods of required copied types, even unused ones. Only the conservative non-generic subset is supported; dot calls require proven owned nominal receivers and by-value `self`. Qualified calls can support borrowed methods without inferred dispatch. |
+| Traits and compiler integration | Trait/blanket impl copying, general method lookup, autoref/autoderef inference, and full compiler/rust-analyzer integration remain deferred. |
+| Macros and attributes | Macros in moved snippets/copied declarations, derives on copied types, conditional compilation affecting required context, and unproven semantic attributes are rejected; literal documentation is supported. Reused original behavior remains in its original crate. |
+
+See the [safety contract and detailed matrix](automatic-context.md),
+[method limits](tasks/009-implementations.md), and [workflow regression evidence](regression-tests.md).
+Whole-file indexing can conservatively reject unsupported syntax outside the selected
+range. Completion of the public workflow does not imply full Rust inference support.
+
+### Review context explicitly
+
+The optional `context_snapshot` is versioned TOML (`format = "checkmate-context"`,
+`version = 1`), separate from the source-text `snapshot`. Either guard can be used
+without the other. `context_report` is also optional: `invoice_context()` only returns
+a TOML string literal; it does not execute the extraction, print, or write anything.
+The example's ignored user-authored test prints it explicitly:
+
+```sh
+cargo test -p checkmate-auto-example --test automatic print_context_for_review -- --ignored --nocapture
+```
+
+For a new baseline, first enable the report without a context guard. For an intentional
+update to a failing guard, explicitly remove only `context_snapshot` from the extraction
+metadata temporarily; keep the source-text guard. Run the print test, review the model
+and differences, and manually copy **only the TOML** (not markers or test-harness output)
+to `examples/automatic-context/snapshots/invoice.context.toml`. Restore the guard, rerun
+tests, and commit the reviewed metadata/baseline together. Do not edit original source
+to satisfy discovery or auto-accept a mismatch. Compilation never writes or approves a
+baseline, and a failing guard does not fall back to report-only mode.
+
+The model covers the approved discovery graph, not whole-program semantics: reused
+originals are terminals, private/transitive dependencies are not recursively frozen,
+and external/toolchain/runtime behavior is not fingerprinted. See
+[context snapshots](context-snapshots.md) for schema, stable identity, and review limits.
+
 ## Detecting line drift with snapshots
 
 A snapshot is a persistent, reviewed copy of the selected snippet, stored outside
@@ -211,8 +295,9 @@ No snapshot is created or updated during compilation—not even when missing.
 Snapshots normalize LF/CRLF line endings and allow a final newline; other whitespace
 and comments are significant. The guard compares the snippet, not the wrapper's
 signature or `output`. It cannot detect a move to a different but identical snippet,
-and it does not automatically relocate code. Without `snapshot`, extraction remains
-unchecked for drift. No markers or annotations are inserted into the original source.
+and it does not automatically relocate code. Without either guard, extraction is
+unchecked for drift. A context guard alone compares normalized syntax, not ordinary
+comments/formatting. No markers or annotations are inserted into the original source.
 
 ## Diagnostics and rebuilding
 
@@ -228,6 +313,20 @@ are produced by rustc, not remapped by Checkmate.
 Emitted `include_str!` dependencies track the source, configuration, and snapshot,
 so changes to any of them trigger recompilation, even for source files that are not
 otherwise part of a Rust module.
+
+### Practical automatic-mode troubleshooting
+
+| Diagnostic | What to do without editing original source |
+| --- | --- |
+| `CM003` unproven placement/source | Use a verified library root and a literal qualified macro invocation at the unique package integration-test root. Check manifest edition, target paths/names, dependency alias, and caller namespace restrictions. Do not add annotations or wrappers to the source to assert placement. |
+| `CM004` missing input | Add the known value as an explicitly typed `fn_sig` parameter and pass it from your test. Do not copy/run its earlier initializer or guess its type. |
+| `CM006` inaccessible original | Check the reported source route and dependency chain. Use only an already accessible, proven original route; never widen visibility or substitute a copied private original. If no legal route exists, test through the public API or use ordinary extraction with legally accessible test context. |
+| `CM011` unproven method/trait resolution | Check receiver ownership and the conservative inherent-method limits. Do not assume Rust's general trait/autoderef inference is implemented. Choose a supported selection or ordinary extraction with explicit test context; discovery does not rewrite calls to force dispatch. |
+| `CM013` context guard/report problem | Check path base, version/schema, stable identity, and accessor-name collisions. For intentional drift, use the explicit report/review/restore flow above, never automatic acceptance. Ambiguous identities may require omitting the optional context guard, not renaming original declarations. |
+
+See [diagnostic categories and bounded reports](diagnostics.md). Rust remains
+responsible for final member privacy, typing, and borrowing; changing mode cannot
+bypass those checks. There is no silent fallback or source-editing remedy.
 
 ## Using existing testing tools
 

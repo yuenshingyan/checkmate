@@ -3,7 +3,9 @@
 Task 012 adds optional context guards to `context = "auto"`. Ordinary snippet snapshots
 remain unchanged. Neither compilation nor the review accessor writes any files.
 
-See the runnable [local-type example](../examples/local-types/context-snapshots.toml),
+Start with the [complete public workflow](../examples/automatic-context/README.md),
+which reuses an original struct and demonstrates configuration-relative paths and both
+guards. For copied nominal context, see the runnable [local-type example](../examples/local-types/context-snapshots.toml),
 its [tests](../examples/local-types/tests/context_snapshot.rs), and the explicitly
 reviewed [version-1 baseline](../examples/local-types/snapshots/user.context.toml).
 

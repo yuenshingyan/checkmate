@@ -1,0 +1,90 @@
+format = "checkmate-context"
+version = 1
+extraction = "fn extracted_invoice (total : u64 , quantity : u32) -> Invoice { let invoice = Invoice { total , items : quantity , } ; invoice }"
+required_inputs = [
+    "quantity",
+    "total",
+]
+
+[source]
+package = "checkmate-auto-example"
+library = "checkmate_auto_example"
+path = "src/lib.rs"
+owner = "crate/fn:invoice"
+
+[[references]]
+origin = "signature"
+path = "u64"
+usage = "type"
+
+[references.target]
+declaration = "external::: core :: primitive :: u64"
+route = ":: core :: primitive :: u64"
+
+[[references]]
+origin = "signature"
+path = "u32"
+usage = "type"
+
+[references.target]
+declaration = "external::: core :: primitive :: u32"
+route = ":: core :: primitive :: u32"
+
+[[references]]
+origin = "signature"
+path = "Invoice"
+usage = "type"
+
+[references.target]
+declaration = "source:crate/struct:Invoice"
+route = ":: checkmate_auto_example :: Invoice"
+
+[[references]]
+origin = "source"
+path = "Invoice"
+usage = "constructor"
+
+[references.target]
+declaration = "source:crate/struct:Invoice"
+route = ":: checkmate_auto_example :: Invoice"
+
+[[references]]
+origin = "source"
+path = "total"
+usage = "value"
+
+[references.target]
+
+[[references]]
+origin = "source"
+path = "quantity"
+usage = "value"
+
+[references.target]
+
+[[references]]
+origin = "output"
+path = "invoice"
+usage = "value"
+
+[references.target]
+
+[declarations."external::: core :: primitive :: u32"]
+role = "external"
+implementations = []
+references = []
+edges = []
+
+[declarations."external::: core :: primitive :: u64"]
+role = "external"
+implementations = []
+references = []
+edges = []
+
+[declarations."source:crate/struct:Invoice"]
+role = "original"
+syntax = "pub struct Invoice { pub total : u64 , pub items : u32 , }"
+reuse_route = ":: checkmate_auto_example :: Invoice"
+implementations = []
+references = []
+edges = []

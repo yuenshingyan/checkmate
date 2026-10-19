@@ -95,4 +95,6 @@ No original fixture/baseline is updated to make a test pass.
 
 These are regression results, not formal verification, exhaustive Rust coverage, or a new
 line/branch coverage measurement. The published [coverage figures](coverage.md) still apply
-only to their task-007 baseline. Task 014 remains the integrated documentation/examples task.
+only to their task-007 baseline. Task 014 adds the
+[complete public automatic example](../examples/automatic-context/README.md); its tests
+complement these task-013 regressions without changing their scope.

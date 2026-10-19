@@ -23,6 +23,7 @@ while compiling dependencies already downloaded by the outer workspace build.
 ## Executable walkthroughs
 
 ```sh
+cargo test -p checkmate-auto-example
 cargo test -p checkmate-struct-example
 cargo test -p checkmate --lib walkthroughs -- --nocapture --test-threads=1
 ```
@@ -32,6 +33,10 @@ The internal walkthrough unit tests read the source and configuration in
 same source as the public integration tests, print their analysis, and assert the
 illustrated results. They test individual stages separately from the new public
 `tests/automatic.rs` examples.
+
+The [complete public workflow](examples/automatic-context/README.md) is a separate
+library/integration-test example, not an internal analysis API. Its source is ordinary
+Rust; extraction metadata, tests, and reviewed baselines live in separate files.
 
 ## Coverage and generated properties
 
@@ -86,7 +91,7 @@ automatic invocations, Unicode locations, and failed expansions.
 - Runnable consumer examples: `examples/` (keep each package's config/snapshots with it).
 - Public workflows: `docs/usage.md`.
 - Current module responsibilities: `docs/architecture.md`.
-- Future automatic-context work: `docs/tasks/README.md` and its linked tasks.
+- Completed milestone records and deferred scope: `docs/tasks/README.md` and its linked tasks.
 
 Keep implementation behavior separate from planned features. Each backlog task has
 dependencies and acceptance criteria; complete and test them before checking it off.

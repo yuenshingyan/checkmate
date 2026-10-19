@@ -1,0 +1,14 @@
+[package]
+name = "checkmate-auto-example"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+publish = false
+
+[dev-dependencies]
+checkmate = { path = "../../crates/checkmate" }
+
+# Keep the deliberately selected binding unchanged; do not rewrite the source
+# into a tail-expression-only example merely to satisfy this style lint.
+[lints.clippy]
+let_and_return = "allow"

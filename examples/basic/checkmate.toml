@@ -1,0 +1,7 @@
+[snippets.add_if]
+fn_sig = "fn add_if(a: f32, b: f32) -> f32"
+module = "src/main.rs"
+start = 7
+end = 11
+output = "c"
+snapshot = "snapshots/add_if.rs"

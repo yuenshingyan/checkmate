@@ -1,0 +1,4 @@
+[workspace]
+members = ["crates/checkmate", "examples/basic"]
+default-members = ["crates/checkmate", "examples/basic"]
+resolver = "3"

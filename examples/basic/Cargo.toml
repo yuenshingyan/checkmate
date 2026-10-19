@@ -1,0 +1,8 @@
+[package]
+name = "checkmate-example"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dev-dependencies]
+checkmate = { path = "../../crates/checkmate" }

@@ -11,7 +11,7 @@ and checkout does not persist credentials.
 | --- | --- | --- |
 | Rust matrix | Rust 1.88.0 and 1.99.1 on Ubuntu 24.04, macOS 14, Windows 2022 | Full locked workspace tests, including temporary native consumers, plus the basic executable |
 | Moving compiler | Latest stable on Ubuntu 24.04 | Same regressions; detects compatibility drift without changing the pinned editor pair |
-| Quality | Rust 1.99.1 on Ubuntu 24.04 | Package-scoped formatting, warning-denying Clippy and rustdoc |
+| Quality | Rust 1.99.1 on Ubuntu 24.04 | Package-scoped formatting, warning-denying Clippy and rustdoc, Python LSP assertion-helper tests |
 | Editor | Rust 1.99.1 plus rust-analyzer 0.3.3081 on Ubuntu 24.04 | Real LSP expansions, hovers, positive diagnostics, unsaved-token rejection, and recovery |
 | `CI required` | Aggregate | Fails unless every Rust matrix leg, quality job, and editor job succeeded |
 
@@ -60,7 +60,9 @@ archives.
 The LSP harness is POSIX-only. Windows compiler coverage does **not** establish Windows
 editor support. The existing locally tested macOS pairing remains documented in
 [editor support](editor-support.md). No diagnostics are suppressed and no editor flag
-bypasses caller identity checks.
+bypasses caller identity checks. Four Python helper tests cover platform-dependent
+`use ::path`/`use::path` pretty-printing while retaining alias resolution, string-literal
+exclusion, and wrong-type rejection. They do not substitute for the actual LSP session.
 
 ## Input integrity and Windows
 
@@ -102,6 +104,7 @@ RUSTUP_TOOLCHAIN=1.99.1 cargo test --workspace --locked
 cargo fmt -p checkmate --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps --locked
+python3 -B scripts/test_editor_helpers.py
 python3 scripts/test_rust_analyzer.py /path/to/verified/rust-analyzer --timeout 180
 ```
 

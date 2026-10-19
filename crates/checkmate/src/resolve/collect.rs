@@ -386,7 +386,9 @@ impl Collector<'_> {
         {
             return Some(ReferenceTarget::Deferred);
         }
-        let namespace = if usage == ReferenceUse::Type || path.segments.len() > 1 {
+        let namespace = if matches!(usage, ReferenceUse::Type | ReferenceUse::Constructor)
+            || path.segments.len() > 1
+        {
             Namespace::Type
         } else {
             Namespace::Value
@@ -450,6 +452,7 @@ impl Collector<'_> {
         if let Some(target) = self.target(path, usage) {
             if path.segments.len() > 1 {
                 self.defer(
+                    DeferredKind::QualifiedPath,
                     path.span(),
                     "qualified path requires final-target resolution beyond its lexical root"
                         .into(),
@@ -472,8 +475,9 @@ impl Collector<'_> {
         }
     }
 
-    fn defer(&mut self, span: Span, description: String) {
+    fn defer(&mut self, kind: DeferredKind, span: Span, description: String) {
         self.result.deferred_operations.push(DeferredOperation {
+            kind,
             description,
             site: self.site(span),
         });
@@ -484,6 +488,7 @@ impl<'ast> Visit<'ast> for Collector<'_> {
     fn visit_type_path(&mut self, node: &'ast syn::TypePath) {
         if node.qself.is_some() {
             self.defer(
+                DeferredKind::QualifiedTrait,
                 node.span(),
                 "qualified associated type requires trait/type resolution".into(),
             );
@@ -495,6 +500,7 @@ impl<'ast> Visit<'ast> for Collector<'_> {
     fn visit_expr_path(&mut self, node: &'ast syn::ExprPath) {
         if node.qself.is_some() {
             self.defer(
+                DeferredKind::QualifiedTrait,
                 node.span(),
                 "qualified associated value requires trait/type resolution".into(),
             );
@@ -504,16 +510,37 @@ impl<'ast> Visit<'ast> for Collector<'_> {
     }
 
     fn visit_expr_struct(&mut self, node: &'ast syn::ExprStruct) {
-        self.record(&node.path, ReferenceUse::Type);
+        if node.qself.is_some() {
+            self.defer(
+                DeferredKind::QualifiedTrait,
+                node.span(),
+                "qualified constructor requires trait/type resolution".into(),
+            );
+        }
+        self.record(&node.path, ReferenceUse::Constructor);
         visit::visit_expr_struct(self, node);
     }
 
     fn visit_pat_struct(&mut self, node: &'ast syn::PatStruct) {
-        self.record(&node.path, ReferenceUse::Type);
+        if node.qself.is_some() {
+            self.defer(
+                DeferredKind::QualifiedTrait,
+                node.span(),
+                "qualified pattern requires trait/type resolution".into(),
+            );
+        }
+        self.record(&node.path, ReferenceUse::Constructor);
         visit::visit_pat_struct(self, node);
     }
 
     fn visit_pat_tuple_struct(&mut self, node: &'ast syn::PatTupleStruct) {
+        if node.qself.is_some() {
+            self.defer(
+                DeferredKind::QualifiedTrait,
+                node.span(),
+                "qualified tuple pattern requires trait/type resolution".into(),
+            );
+        }
         self.record(&node.path, ReferenceUse::Value);
         visit::visit_pat_tuple_struct(self, node);
     }
@@ -572,6 +599,7 @@ impl<'ast> Visit<'ast> for Collector<'_> {
 
     fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
         self.defer(
+            DeferredKind::Method,
             node.method.span(),
             format!("method `{}` requires method/trait resolution", node.method),
         );

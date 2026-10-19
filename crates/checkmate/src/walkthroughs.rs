@@ -60,6 +60,45 @@ impl Example {
 }
 
 #[test]
+fn original_declarations_generate_identity_preserving_imports() {
+    use crate::resolve::declarations::{Resolved, Resolver, ReuseSite};
+    let example = Example::load("build_user");
+    let origin = SourceOrigin::discover(&example.root, &example.source.path).unwrap();
+    let resolver = Resolver::new(
+        &example.source,
+        &example.index,
+        &origin,
+        ReuseSite::PackageIntegrationTest,
+    )
+    .unwrap();
+    let selection = example
+        .source
+        .select(
+            example.args.start.base10_parse().unwrap(),
+            example.args.end.base10_parse().unwrap(),
+        )
+        .unwrap();
+    let references = example.configured_analysis();
+    let resolved = resolver.references(&references, &selection).unwrap();
+    let originals: Vec<_> = resolved
+        .iter()
+        .filter(|item| matches!(item, Resolved::Original { .. }))
+        .collect();
+    assert_eq!(originals.len(), 2); // Signature and construction share an identity.
+    assert_eq!(originals[0], originals[1]);
+    let generated = originals[0]
+        .import_as(&syn::parse_str("Account").unwrap())
+        .unwrap()
+        .to_string();
+    assert_eq!(
+        generated,
+        "use :: checkmate_struct_example :: models :: User as Account ;"
+    );
+    println!("Reusable original: {generated}");
+    println!("No struct copy; the invocation target must be verified before public integration.");
+}
+
+#[test]
 fn imports_preserve_alias_origins() {
     let example = Example::load("build_user");
     let origin = SourceOrigin::discover(&example.root, &example.source.path).unwrap();

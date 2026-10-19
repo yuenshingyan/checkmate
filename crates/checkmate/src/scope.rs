@@ -16,10 +16,10 @@ use proc_macro2::LineColumn;
 
 use crate::source::ast::{ParsedSource, SourceRange};
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub(crate) struct ScopeId(pub usize);
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub(crate) struct DeclarationId(pub usize);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

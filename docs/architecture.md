@@ -27,6 +27,7 @@ All paths below are inside `crates/checkmate/src/`.
 | `scope/imports.rs` | Test-gated explicit import trees, aliases, module paths, and unvalidated path provenance |
 | `source/origin.rs` | Test-gated source-to-library/binary-root identity from the package manifest |
 | `resolve.rs`, `resolve/collect.rs` | Test-gated reference/input collection across snippet, supplied signature, and output |
+| `resolve/catalog.rs`, `resolve/declarations.rs` | Test-gated original-item identities, namespace-aware reusable paths/imports, local-type IDs, conservative access checks |
 | `snapshot.rs` | Compare selected source against a reviewed baseline; report first mismatch |
 | `generate.rs` | Signature parsing, inclusive line selection, snapshot validation, body parsing, token emission |
 | `tests.rs` | Unit tests for syntax, configuration, ranges, diagnostics, and snapshots |
@@ -65,7 +66,9 @@ captured or inferred. Ordinary rustc type, ownership, and visibility checks stil
 - `examples/basic/src/tests.rs`: user-authored tests for the unmodified example source.
 - `examples/struct-return/tests/extraction.rs`: public-API tests for original struct
   identity, tuple outputs, and ordinary method calls with explicit imports/types.
-- `src/walkthroughs.rs`: five repository-only unit tests that print and assert internal
+- `src/resolve/declarations/tests.rs`: real rustc consumers verifying generated imports,
+  original type identity, and item/field privacy failures without source modification.
+- `src/walkthroughs.rs`: six repository-only unit tests that print and assert internal
   analysis of the same `examples/struct-return` source/config. See the
   [walkthrough guide](../examples/struct-return/README.md).
 
@@ -74,10 +77,9 @@ captured or inferred. Ordinary rustc type, ownership, and visibility checks stil
 The [design contract](automatic-context.md) defines the opt-in syntax and safety
 boundary. The [automatic-context backlog](tasks/README.md) describes new source AST, scope,
 reference-resolution, and dependency-graph passes. Whole-file source selection and
-lexical scope/import indexing, source-root mapping, and reference collection are
-implemented and unit-tested, but remain test-gated until task 011 integrates the
-opt-in pipeline. Final declaration/accessibility resolution and dependency graphs
-are not implemented yet.
+lexical scope/import indexing, source-root mapping, reference collection, and original
+declaration resolution are implemented and tested, but remain test-gated until task
+011 integrates the opt-in pipeline. Dependency graphs are not implemented yet.
 
 The lexical index distinguishes hoisted items from position-dependent locals and
 tracks type/value/macro namespaces separately. It models closure capture, item
@@ -103,6 +105,23 @@ Only explicit supplied parameters satisfy required outer-value inputs. The colle
 reports missing inputs and capture/shadowing changes, and records unknown roots,
 ambiguous type/const arguments, methods, and qualified final targets as deferred
 analysis. A collected root identity is not proof of final member resolution or access.
+
+Declaration resolution borrows original item syntax and produces reusable qualified
+imports or function-local type IDs. It does not copy items. Internal callers must
+establish same-target or same-package integration-test placement; the latter requires
+a verified library root/name. Public canonical routes and simple public item re-exports
+are checked syntactically. rustc remains authoritative for same-target privacy,
+private fields, type access, availability, and typing. Generic arguments stay in the
+original AST; emitted base imports must not replace or erase them.
+
+Known unshadowed prelude mappings cover primitive scalar/string-slice types, `String`,
+`Vec`, `Box`, `Option`, `Result`, their `Some`/`None`/`Ok`/`Err` constructors, and
+`Clone`, `Copy`, `Sized`, `Send`, `Sync`, `Default`. The supported source index rejects
+prelude-changing crate attributes; Cargo `std`/`core` name collisions are also rejected.
+No other prelude name is guessed. External types in the same target remain symbolic
+Rust-checked paths. Nonstandard cross-target dependency aliases do not prove type
+identity and are rejected, as are external values and unresolved trait/associated
+operations. A successful reference plan cannot silently drop pending method analysis.
 
 The current source/argument/generation separation provides places to add them without
 turning the public proc-macro entry point into the implementation itself.

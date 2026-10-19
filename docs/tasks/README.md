@@ -1,9 +1,12 @@
 # Automatic-context resolution backlog
 
-Task 011 exposes the tested foundations through opt-in `context = "auto"` for verified
-library-root and package integration-test-root extractions. Ordinary extraction still
-requires external context at its invocation site. See the
-[design contract](../automatic-context.md) and [public placement limits](../usage.md#automatic-context-opt-in).
+The 14-task milestone is complete on dependency-stacked branches; `master` remains
+unmerged. Public `context = "auto"` supports verified library-root to package integration-
+test-root extraction, optional reviewed context baselines, and the conservative subset
+below. Ordinary extraction still requires external context at its invocation site.
+Start with the [complete example](../../examples/automatic-context/README.md),
+[design contract](../automatic-context.md), and [public placement limits](../usage.md#automatic-context-opt-in).
+Completion does not imply a release or implementation of the deferred features below.
 
 ## Constraints
 
@@ -33,11 +36,11 @@ requires external context at its invocation site. See the
 | [x] | [011 — Integrate an opt-in automatic-context pipeline](011-pipeline.md) | 007–010 |
 | [x] | [012 — Protect discovered context with snapshots](012-context-snapshots.md) | 011 |
 | [x] | [013 — Add end-to-end regression coverage](013-regression-tests.md) | 011, 012 |
-| [ ] | [014 — Document the feature and add examples](014-documentation.md) | 013 |
+| [x] | [014 — Document the feature and add examples](014-documentation.md) | 013 |
 
-Each task includes acceptance tests. Update its status and this checklist only when
-those criteria are met. New implementation modules such as `scope.rs` and `resolve.rs`
-are proposed, not empty placeholders to create in advance.
+Each completed task records its implementation and verification evidence. Historical
+scope descriptions are not promises of broader current support; use the public guides
+for the implemented boundary. Future work needs separately scoped acceptance criteria.
 
 ## Implementation branches
 
@@ -60,15 +63,18 @@ Review/merge in this order (or compare each branch against its listed base):
 | 011 | `task/011-pipeline` | `task/010-diagnostics` |
 | 012 | `task/012-context-snapshots` | `task/011-pipeline` |
 | 013 | `task/013-regression-tests` | `task/012-context-snapshots` |
+| 014 | `task/014-documentation` | `task/013-regression-tests` |
 
 Tasks 002–010 were tested internal foundations; task 011 enables their production
 analysis path for the verified public opt-in. Historical task-specific descriptions
 record their boundaries at implementation time, not the current public feature status.
 Task 012 adds reviewed context snapshots without compilation writes.
 Task 013 adds [native workflow regressions](../regression-tests.md).
-Next: task 014 (integrated documentation and examples).
-The [current examples](../../examples/README.md) illustrate these foundations and the
-existing public API; they do not mark task 014's integrated-feature documentation complete.
+Task 014 adds the [integrated public workflow](../../examples/automatic-context/README.md)
+and consolidates documentation. All 14 tasks are complete; merging/releasing the stack
+or expanding the supported subset requires a separate decision.
+The [example index](../../examples/README.md) distinguishes ordinary extraction,
+public automatic mode, and contributor-only analysis walkthroughs.
 
 ## Out of scope for this milestone
 

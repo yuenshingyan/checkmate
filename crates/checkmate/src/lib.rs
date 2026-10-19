@@ -23,11 +23,42 @@ use syn::parse_macro_input;
 
 /// Extract a source range into a function available only under `cfg(test)`.
 ///
-/// Omission of `context` keeps ordinary extraction. `context = "auto"` discovers
-/// supported context only for verified library roots and literal fully qualified
-/// invocations at package integration-test roots. Copied function-local structs
-/// and enums have new nominal identity; original declarations retain theirs.
-/// Source, configuration, and snapshots are never modified by compilation.
+/// Omit `context` for ordinary extraction and supply required context in the test
+/// scope. Opt into `context = "auto"` to discover supported declarations from a
+/// verified library root, using a literal fully qualified invocation at a package
+/// integration-test crate root (Rust 1.88+ and Cargo required).
+///
+/// Both modes require your explicit typed inputs, inclusive line range, and tests;
+/// you also choose an optional output expression. Earlier initializers are never executed or captured. Automatic mode
+/// is not full type/trait inference: generic local context, macro expansion, and
+/// general method dispatch remain unsupported. Copied non-generic inherent methods
+/// are checked even when unused; dot-call support requires a proven owned nominal
+/// receiver and inherent by-value `self` method.
+///
+/// Reused accessible originals retain identity and privacy. Copied function-local
+/// structs/enums have new nominal identity, not interoperability with the original;
+/// aliases remain transparent to their rewritten targets. Unsupported discovery
+/// errors rather than falling back or bypassing privacy.
+///
+/// `snapshot` guards selected source text. Automatic mode additionally accepts an
+/// optional versioned `context_snapshot` and `context_report = "invoice_context"`.
+/// The latter emits an accessor returning a TOML literal, not a printer or writer.
+/// Print it explicitly in a user-authored test, manually review/copy the TOML, then
+/// enable/restore the guard. Context baselines cover the supported discovery graph,
+/// not whole-program equivalence. Compilation never modifies source, config, or baselines.
+///
+/// Inline paths and the `config` path are invoking-package-relative; paths inside
+/// TOML definitions are relative to that configuration file. Do not mix inline
+/// options with `config`/`snippet`.
+///
+/// The following are alternative contextual fragments, not one standalone doctest.
+/// Choose the corresponding package/example; do not paste all invocations into one file.
+/// Ordinary and automatic workflows are tested in the workspace's `examples/basic`
+/// and `examples/automatic-context` packages. From the repository root, run
+/// `cargo test -p checkmate-auto-example`; to print review data explicitly, run
+/// `cargo test -p checkmate-auto-example --test automatic print_context_for_review -- --ignored --nocapture`.
+/// See `docs/usage.md`, `docs/context-snapshots.md`, and `docs/diagnostics.md` for
+/// limits, manual review, and CM004/CM006/CM011/CM013 remedies without source edits.
 ///
 /// ```ignore
 /// use checkmate::extract_fn;
@@ -42,7 +73,11 @@ use syn::parse_macro_input;
 /// }
 ///
 /// // Alternatively, load a named definition from an external TOML file:
-/// extract_fn!(config = "checkmate.toml", snippet = "other_snippet");
+/// extract_fn!(config = "checkmate.toml", snippet = "add_if");
+///
+/// // Automatic example: at the root of examples/automatic-context/tests/automatic.rs.
+/// // Its config supplies context = "auto", explicit inputs/range/output, and guards.
+/// checkmate::extract_fn!(config = "metadata/snippets.toml", snippet = "invoice");
 /// ```
 #[proc_macro]
 pub fn extract_fn(input: TokenStream) -> TokenStream {

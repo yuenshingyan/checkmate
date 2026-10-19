@@ -1,34 +1,40 @@
 # Checkmate
 
 Generate test-only Rust functions from existing source snippets—without adding
-markers, annotations, or wrappers to the original code.
+markers, annotations, or wrappers to the original code. Requires **Rust 1.88+**.
 
-## What works today
+You supply the line range, function signature, typed inputs, optional output, and your
+own tests. Checkmate extracts a copy; it does not execute earlier statements or capture
+the original function's runtime values.
 
-- Extract complete statements or an expression using inclusive line ranges.
-- Supply a function signature and optional return expression.
-- Define extractions inline or in an external TOML file.
-- Guard against line drift with explicitly reviewed snippet snapshots.
-- Get source-aware extraction errors and automatic rebuilds when input files change.
+## Choose an extraction mode
 
-Users write their own tests. Opt-in `context = "auto"` now discovers supported context
-for verified **library-root → package integration-test** extractions. It reuses original
-types or copies supported function-local types with **new nominal identity**. Placement
-and syntax limits are deliberate; see [automatic mode](docs/usage.md#automatic-context-opt-in).
-Optional [context snapshots](docs/context-snapshots.md) now guard discovered declaration
-syntax and mappings. Review data is available through a test-only accessor; files are
-created or updated only through explicit user review.
+| Mode | What Checkmate does | Starting point |
+| --- | --- | --- |
+| Ordinary (omit `context`) | Copies the selected statements/expression into your function; you provide needed imports/context at the invocation site | [Basic example](examples/basic/checkmate.toml) |
+| Automatic (`context = "auto"`) | Discovers supported context for a verified **library-root → package integration-test-root** extraction; reuses accessible originals or promotes supported local types | [Complete automatic example](examples/automatic-context/README.md) |
 
-## Quick start
+Automatic mode preserves original declaration identity and privacy. Copied function-local
+structs/enums have **new nominal identity**; aliases remain transparent. It is conservative
+syntax analysis, not full compiler inference. Unsupported or ambiguous context fails—there
+is no silent fallback. See the [supported subset](docs/automatic-context.md).
 
-Run the included example and test suite from the repository root:
+## Run the examples
+
+From the repository root:
 
 ```sh
 cargo test --workspace
 cargo run -p checkmate-example
+cargo test -p checkmate-auto-example
 ```
 
-The example keeps its metadata in `examples/basic/checkmate.toml`:
+The basic package is the runnable binary. The automatic example is a library with
+user-authored integration tests; it does not have a `cargo run` target.
+
+## Ordinary extraction
+
+The unchanged basic example keeps metadata in `examples/basic/checkmate.toml`:
 
 ```toml
 [snippets.add_if]
@@ -53,37 +59,65 @@ fn adds_nonnegative_inputs() {
 }
 ```
 
-Paths are relative to the example package/configuration, not the workspace root.
-See the [usage guide](docs/usage.md) for dependency setup, inline syntax, snapshots,
-path resolution, and current limitations.
+## Automatic extraction
 
-## More examples
+The [new example's source](examples/automatic-context/src/lib.rs) constructs an `Invoice`
+using an earlier `total` value. Its metadata explicitly supplies `total: u64` and
+`quantity: u32`; automatic discovery supplies the original `Invoice` declaration's
+access route, **not** those runtime values.
 
-See the [example index](examples/README.md) for a struct-returning extraction,
-tuple outputs, and printed walkthroughs of internal declaration/dependency analysis
-and [local-type promotion](examples/local-types/README.md), including
-[checked inherent methods](examples/inherent-methods/README.md).
+At the root of [`tests/automatic.rs`](examples/automatic-context/tests/automatic.rs):
 
-```sh
-cargo test -p checkmate-struct-example
-cargo test -p checkmate --lib walkthroughs -- --nocapture --test-threads=1
+```rust,ignore
+checkmate::extract_fn!(config = "metadata/snippets.toml", snippet = "invoice");
+
+#[test]
+fn returned_value_is_the_original_library_type() {
+    let value: checkmate_auto_example::Invoice = extracted_invoice(12, 4);
+    assert_eq!((value.total, value.items), (12, 4));
+}
 ```
 
-Separate `tests/automatic.rs` files demonstrate public automatic mode without manual
-context imports in the struct-return, local-types, and inherent-methods packages.
-The original explicit-mode tests and internal walkthroughs remain available.
+The [configuration](examples/automatic-context/metadata/snippets.toml) opts in with
+`context = "auto"`. No `Invoice` import or manual declaration range is supplied.
+The [walkthrough](examples/automatic-context/README.md) explains every file and path.
+
+## Reviewable guards, never compilation writes
+
+- `snapshot` guards the selected source text.
+- Optional `context_snapshot` additionally guards the supported discovery model,
+  including normalized signature/body/output and declaration/dependency mappings.
+- `context_report` names a test-only accessor returning that model as TOML. A user-authored
+  test may print it for review; you explicitly create/update the baseline yourself.
+
+Neither guard relocates code or proves semantic equivalence. A missing/mismatching guard
+fails compilation without updating any file. See the
+[context review workflow and limits](docs/context-snapshots.md).
+
+## Guides and examples
+
+- [Usage](docs/usage.md): dependency setup, inline/TOML options, paths, placement, and errors.
+- [Example index](examples/README.md): original structs, copied locals, tuples, checked
+  inherent methods, and clearly separate internal analysis walkthroughs.
+- [Diagnostics](docs/diagnostics.md): bounded Checkmate reports versus rustc errors.
+- [Architecture](docs/architecture.md): discovery, scope resolution, graph, promotion, and emission.
+- [Regression matrix](docs/regression-tests.md) and [coverage limits](docs/coverage.md):
+  behavioral tests and bounded properties are not formal guarantees or new coverage measurements.
+- [Completed milestone and deferred work](docs/tasks/README.md): task records and stacked branches.
+
+Paths in inline options and `config` are relative to the invoking package. Paths **inside**
+a TOML definition are relative to that configuration file, not the workspace root.
 
 ## Repository layout
 
 ```text
-crates/checkmate/       Procedural macro, unit tests, and integration tests
-examples/basic/        Standalone consumer with source, tests, config, and snapshot
-examples/struct-return/ Struct/tuple examples and shared inputs for analysis walkthroughs
-examples/local-types/   Public local-type promotion and internal analysis walkthroughs
-examples/inherent-methods/ Public checked methods and internal analysis walkthroughs
-docs/usage.md          Public API and workflows
-docs/architecture.md   Current implementation and module responsibilities
-docs/tasks/            Small, dependency-ordered tasks for automatic context resolution
+crates/checkmate/            Procedural macro, unit tests, and native consumer tests
+examples/basic/             Ordinary extraction and a runnable binary
+examples/automatic-context/ Complete public automatic workflow and reviewed baselines
+examples/struct-return/     Original structs/tuples and internal analysis walkthroughs
+examples/local-types/       Copied local types and context baseline inspection
+examples/inherent-methods/  Conservative checked methods on copied local types
+docs/                       Usage, safety contract, review workflow, and implementation records
 ```
 
 ## Development
@@ -94,6 +128,7 @@ cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 ```
 
-Format the macro crate with `cargo fmt -p checkmate`. The example and extraction
-fixtures intentionally retain their line layout: formatting selected source can
-invalidate ranges and snapshots. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Format the macro crate with `cargo fmt -p checkmate`. Do not broadly format line-selected
+example sources or fixtures: their ranges and reviewed snapshots are intentional.
+See [CONTRIBUTING.md](CONTRIBUTING.md). The dependency-stacked milestone branches remain
+separate from `master`; completion does not imply a merge or release.

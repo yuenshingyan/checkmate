@@ -27,6 +27,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "checkmate-auto-example"
+version = "0.1.0"
+dependencies = [
+ "checkmate",
+]
+
+[[package]]
 name = "checkmate-example"
 version = "0.1.0"
 dependencies = [

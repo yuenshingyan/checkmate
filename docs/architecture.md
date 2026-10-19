@@ -1,14 +1,17 @@
 # Current architecture
 
-[Overview](../README.md) · [Usage](usage.md) · [Future tasks](tasks/README.md)
+[Overview](../README.md) · [Usage](usage.md) · [Milestone and deferred work](tasks/README.md)
 
 ## Workspace
 
 The root `Cargo.toml` is a virtual workspace. `crates/checkmate` is the procedural
-macro package; `examples/basic`, `examples/struct-return`, `examples/local-types`, and
-`examples/inherent-methods` are unpublished example packages. The last two supply ordinary
-source for internal promotion/implementation walkthroughs and public automatic-context
-integration tests. One root `Cargo.lock` records the workspace's resolved dependencies.
+macro package. `examples/basic` demonstrates ordinary extraction; the new
+[`examples/automatic-context`](../examples/automatic-context/README.md) demonstrates a
+complete public automatic workflow, explicit inputs, original struct identity, tuple
+output, and both reviewed guards. `examples/struct-return`, `examples/local-types`, and
+`examples/inherent-methods` provide additional public examples and shared source for
+internal walkthroughs. All examples are unpublished workspace packages. One root
+`Cargo.lock` records the workspace's resolved dependencies.
 
 The basic example keeps all of its own inputs together: `src/main.rs`, `src/tests.rs`,
 `checkmate.toml`, and `snapshots/add_if.rs`. Moving the example does not change its
@@ -105,8 +108,10 @@ invocation spans. The ordinary extraction path retains its original compiler tok
   each build; see the [regression matrix](regression-tests.md).
 - `examples/local-types/tests/context_snapshot.rs`: public reviewed baseline and an
   explicitly invoked, read-only report printer.
-- `examples/*/tests/automatic.rs`: public automatic extraction using the existing
-  struct-return, local-types, and inherent-methods sources.
+- `examples/*/tests/automatic.rs`: public automatic extraction using the struct-return,
+  local-types, and inherent-methods sources, plus the complete automatic-context example.
+  The latter checks original `Invoice` identity, explicit inputs rather than earlier
+  initializer execution, original result comparisons, and inline tuple output.
 - `tests/extraction.rs`: compiled functions using inline and TOML definitions.
 - `tests/fixtures/`: exact source selections, configurations, and snapshots; not all
   `.rs` files are standalone modules or valid crates.
@@ -136,12 +141,14 @@ invocation spans. The ordinary extraction path retains its original compiler tok
 
 ## Automatic-context boundary
 
-The [design contract](automatic-context.md) defines the supported subset. Task 011 now
-wires the tested AST/scope/resolver/graph/promotion stages into the public opt-in, limited
-to verified library-source and package integration-test roots. Omission preserves the
-ordinary extraction pipeline. Task 012 adds optional [context snapshots](context-snapshots.md)
-from the same validated graph used by promotion. Task 013 adds native integration
-regressions; integrated feature documentation remains [task 014](tasks/README.md).
+The [design contract](automatic-context.md) defines the supported subset. The public
+opt-in connects AST/scope/resolver/graph/promotion analysis for verified library-source
+and package integration-test roots. Omission preserves ordinary extraction. Optional
+[context snapshots](context-snapshots.md) use the same validated graph as promotion.
+The [regression matrix](regression-tests.md) and
+[complete example](../examples/automatic-context/README.md) cover the public workflow.
+The 14-task milestone is complete; full compiler inference, arbitrary source discovery,
+and other [deferred features](tasks/README.md#out-of-scope-for-this-milestone) are not implemented.
 
 The lexical index distinguishes hoisted items from position-dependent locals and
 tracks type/value/macro namespaces separately. It models closure capture, item

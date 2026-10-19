@@ -1,9 +1,11 @@
 # Automatic context: supported subset and safety contract
 
-**Status:** tasks 001–013 implement the public opt-in, optional context baselines, and native workflow regressions. The public placement
-boundary is currently verified library roots and package integration-test roots;
-see [usage and restrictions](usage.md#automatic-context-opt-in) and the
-[regression matrix](regression-tests.md). Task 014 covers integrated documentation.
+**Status:** the 14-task milestone is implemented, documented, and tested on stacked
+branches. Public placement remains limited to verified library roots and package
+integration-test roots. See [usage and restrictions](usage.md#automatic-context-opt-in),
+the [complete example](../examples/automatic-context/README.md), and the
+[regression matrix](regression-tests.md). Milestone completion does not imply full
+Rust/compiler inference or a merge into `master`.
 
 ## Public boundary
 

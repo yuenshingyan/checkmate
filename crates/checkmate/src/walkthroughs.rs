@@ -1,0 +1,203 @@
+//! Executable documentation for the private analysis APIs. These tests read the
+//! same source/config used by the public struct-return example; they do not add a
+//! public API or pretend that `context = "auto"` is available.
+
+use std::{fs, path::PathBuf};
+
+use proc_macro2::Span;
+use quote::quote;
+use syn::{Expr, LitStr, Signature};
+
+use crate::arguments::{Args, Invocation};
+use crate::resolve::{ReferenceOrigin, ReferenceTarget, References, collect_references};
+use crate::scope::ScopeIndex;
+use crate::scope::imports::{ImportId, PathOrigin};
+use crate::source::ast::ParsedSource;
+use crate::source::origin::SourceOrigin;
+
+struct Example {
+    root: PathBuf,
+    source: ParsedSource,
+    index: ScopeIndex,
+    args: Args,
+}
+
+impl Example {
+    fn load(snippet: &str) -> Self {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/struct-return");
+        let snippet = LitStr::new(snippet, Span::call_site());
+        let invocation: Invocation = syn::parse2(quote! {
+            config = "checkmate.toml", snippet = #snippet,
+        })
+        .unwrap();
+        let resolved = invocation.resolve(&root).unwrap();
+        let text = fs::read_to_string(resolved.root.join(resolved.args.module.value())).unwrap();
+        let source = ParsedSource::parse(resolved.args.module.value(), text).unwrap();
+        let index = ScopeIndex::build(&source).unwrap();
+        Self {
+            root,
+            source,
+            index,
+            args: resolved.args,
+        }
+    }
+
+    fn analyze(&self, signature: &Signature, output: Option<&Expr>) -> syn::Result<References> {
+        let selection = self.source.select(
+            self.args.start.base10_parse()?,
+            self.args.end.base10_parse()?,
+        )?;
+        collect_references(&self.source, &self.index, &selection, signature, output)
+    }
+
+    fn configured_analysis(&self) -> References {
+        self.analyze(
+            &self.args.fn_sig.parse().unwrap(),
+            self.args.output.as_ref(),
+        )
+        .unwrap()
+    }
+}
+
+#[test]
+fn imports_preserve_alias_origins() {
+    let example = Example::load("build_user");
+    let origin = SourceOrigin::discover(&example.root, &example.source.path).unwrap();
+    for (alias, expected) in [
+        ("Account", vec!["models", "User"]),
+        ("Member", vec!["models", "User"]),
+        ("schema", vec!["models"]),
+    ] {
+        let id = ImportId(
+            example
+                .index
+                .imports
+                .iter()
+                .position(|import| import.alias == alias)
+                .unwrap(),
+        );
+        let path = example.index.import_origin(id, &origin).unwrap();
+        let expected: Vec<String> = expected.into_iter().map(str::to_owned).collect();
+        assert_eq!(path, PathOrigin::Crate(expected.clone()));
+        println!(
+            "{alias} -> crate::{} (source origin; access not inferred)",
+            expected.join("::")
+        );
+    }
+}
+
+#[test]
+fn references_classify_inputs_and_locals() {
+    let example = Example::load("build_user");
+    let references = example.configured_analysis();
+    assert_eq!(
+        references
+            .required_inputs
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
+        ["active", "name"]
+    );
+    println!("Required inputs: active, name");
+    for reference in &references.occurrences {
+        if !["Account", "name", "active", "user"].contains(&reference.root.as_str()) {
+            continue;
+        }
+        let classification = match reference.target {
+            ReferenceTarget::Import(_) => "import candidate",
+            ReferenceTarget::Input(_) => "explicit input",
+            ReferenceTarget::SnippetLocal(_) => "snippet local",
+            _ => panic!("unexpected classification for {}", reference.root),
+        };
+        println!(
+            "{:?}: {} -> {classification}",
+            reference.site.origin, reference.root
+        );
+    }
+    assert!(
+        references
+            .occurrences
+            .iter()
+            .any(|reference| reference.root == "user"
+                && reference.site.origin == ReferenceOrigin::Output
+                && matches!(reference.target, ReferenceTarget::SnippetLocal(_)))
+    );
+    assert_eq!(
+        fs::read_to_string(example.root.join(&example.source.path)).unwrap(),
+        example.source.text
+    );
+}
+
+#[test]
+fn missing_input_has_an_actionable_error() {
+    let example = Example::load("build_user");
+    let signature = syn::parse_str("fn build_user(active: bool) -> Account").unwrap();
+    let error = example
+        .analyze(&signature, example.args.output.as_ref())
+        .err()
+        .expect("name was not supplied")
+        .to_string();
+    assert!(error.contains("required input `name`"));
+    let range = format!(
+        "{}:{}-{}",
+        example.args.module.value(),
+        example.args.start,
+        example.args.end
+    );
+    assert!(error.contains(&range));
+    println!("{error}");
+}
+
+#[test]
+fn output_shadowing_has_a_separate_scope() {
+    let example = Example::load("user_fields");
+    let output = syn::parse_str("{ let active = false; (user.name, active) }").unwrap();
+    let references = example
+        .analyze(&example.args.fn_sig.parse().unwrap(), Some(&output))
+        .unwrap();
+    assert!(
+        references
+            .occurrences
+            .iter()
+            .any(|reference| reference.root == "active"
+                && reference.site.origin == ReferenceOrigin::Source
+                && matches!(reference.target, ReferenceTarget::Input(_)))
+    );
+    assert!(
+        references
+            .occurrences
+            .iter()
+            .any(|reference| reference.root == "active"
+                && reference.site.origin == ReferenceOrigin::Output
+                && matches!(reference.target, ReferenceTarget::GeneratedLocal(_)))
+    );
+    println!("active in the snippet -> explicit input");
+    println!("active in the output block -> output-local binding, not another input");
+}
+
+#[test]
+fn methods_stay_deferred_instead_of_becoming_inputs() {
+    let example = Example::load("count_values");
+    let references = example.configured_analysis();
+    assert_eq!(
+        references
+            .required_inputs
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
+        ["values"]
+    );
+    assert!(
+        !references
+            .occurrences
+            .iter()
+            .any(|reference| reference.root == "len")
+    );
+    let method = references
+        .deferred_operations
+        .iter()
+        .find(|operation| operation.description.contains("method `len`"))
+        .unwrap();
+    println!("Required input: values (not len)");
+    println!("Deferred: {}", method.description);
+}

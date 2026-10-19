@@ -12,7 +12,8 @@ markers, annotations, or wrappers to the original code.
 - Get source-aware extraction errors and automatic rebuilds when input files change.
 
 Users write their own tests. Automatic discovery of surrounding types/imports is
-**planned, not implemented**; see the [task backlog](docs/tasks/README.md).
+**not publicly enabled yet**. Import and reference analysis exist as tested internal
+foundations; see the [task backlog](docs/tasks/README.md).
 
 ## Quick start
 
@@ -52,11 +53,25 @@ Paths are relative to the example package/configuration, not the workspace root.
 See the [usage guide](docs/usage.md) for dependency setup, inline syntax, snapshots,
 path resolution, and current limitations.
 
+## More examples
+
+See the [example index](examples/README.md) for a struct-returning extraction,
+tuple outputs, and printed walkthroughs of the internal import/reference analyzer.
+
+```sh
+cargo test -p checkmate-struct-example
+cargo test -p checkmate --lib walkthroughs -- --nocapture --test-threads=1
+```
+
+The public struct-return example still imports its type explicitly. The walkthroughs
+show internal analysis, not a new automatic-extraction API.
+
 ## Repository layout
 
 ```text
 crates/checkmate/       Procedural macro, unit tests, and integration tests
 examples/basic/        Standalone consumer with source, tests, config, and snapshot
+examples/struct-return/ Struct/tuple examples and shared inputs for analysis walkthroughs
 docs/usage.md          Public API and workflows
 docs/architecture.md   Current implementation and module responsibilities
 docs/tasks/            Small, dependency-ordered tasks for automatic context resolution

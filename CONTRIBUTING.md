@@ -48,6 +48,18 @@ Task-009 implementation tests also compile the actual inherent-methods example s
 all copied methods and their dependencies are checked, including unused ones. The public
 automatic-context pipeline is still disabled.
 
+## Internal diagnostics
+
+```sh
+cargo test -p checkmate --lib diagnostics
+cargo test -p checkmate --lib walkthroughs::missing_input -- --nocapture
+```
+
+See [the diagnostic contract](docs/diagnostics.md). Preserve typed error metadata through
+context wrappers; do not classify errors by matching messages. The future public adapter
+must call the bounded renderer with snippet identity/source context and an actual invocation
+span, not emit the legacy internal `Display` string. Error handling must remain read-only.
+
 ## Where changes belong
 
 - Macro implementation and tests: `crates/checkmate/`.

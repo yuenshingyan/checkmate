@@ -2,6 +2,7 @@
 //! nominal receiver and an inherent `self` method. Autoref/deref can select traits
 //! before an inherent method; mere existence of a same-named method is NOT proof.
 use super::{Targets, key};
+use crate::diagnostics::{Error, Kind, Origin, Result};
 use crate::resolve::ReferenceUse;
 use crate::resolve::catalog::{canonical, error};
 use crate::resolve::declarations::{Resolved, Resolver};
@@ -92,7 +93,7 @@ pub(super) fn check(
     index: &ScopeIndex,
     targets: &Targets,
     syntax: Syntax<'_>,
-) -> syn::Result<Vec<(proc_macro2::LineColumn, DeclarationId)>> {
+) -> Result<Vec<(proc_macro2::LineColumn, DeclarationId)>> {
     let mut scan = Scan {
         bindings: BTreeMap::new(),
         calls: Vec::new(),
@@ -119,13 +120,13 @@ pub(super) fn check(
         let approved = owner.and_then(|owner| resolver.method(owner, &call.method.to_string()))
             .is_some_and(|method| matches!(method.sig.inputs.first(), Some(syn::FnArg::Receiver(receiver)) if receiver.reference.is_none() && receiver.colon_token.is_none()));
         if !approved || call.turbofish.is_some() {
-            return Err(syn::Error::new(
+            return Err(Error::new(
                 call.method.span(),
                 format!(
                     "method `{}` requires method/trait resolution: only proven owned local receivers with inherent by-value self methods are supported; use an explicit Type::method call for supported borrowed methods",
                     call.method
                 ),
-            ));
+            ).with_kind(Kind::MethodResolution).with_subject(call.method.to_string(), None).with_site(Origin::Source, SourceRange::of(&call.method)));
         }
         approved_calls.push((at, owner.expect("approved receiver")));
     }
@@ -135,7 +136,7 @@ pub(super) fn check(
 pub(super) fn verify_source_receivers(
     resolver: &Resolver<'_>,
     calls: &[(proc_macro2::LineColumn, DeclarationId)],
-) -> syn::Result<()> {
+) -> Result<()> {
     if calls.is_empty() {
         return Ok(());
     }
@@ -161,10 +162,10 @@ pub(super) fn verify_source_receivers(
             .ok_or_else(|| error("original method site is absent"))?;
         let original = checker.receiver(&call.receiver, &mut BTreeSet::new());
         if original != Some(*expected) {
-            return Err(syn::Error::new(
+            return Err(Error::new(
                 call.method.span(),
                 "supplied input/receiver context does not prove the original method target; receiver identity must agree before and after extraction",
-            ));
+            ).with_kind(Kind::MethodResolution).with_subject(call.method.to_string(), None).with_site(Origin::Source, SourceRange::of(&call.method)));
         }
     }
     Ok(())

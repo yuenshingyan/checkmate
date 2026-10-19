@@ -1,17 +1,19 @@
+use crate::diagnostics::{Error, Kind, Origin, Result};
 use proc_macro2::{LineColumn, Span};
+use quote::ToTokens;
 use syn::spanned::Spanned;
 use syn::visit::{self, Visit};
 
 use super::*;
 
-pub(super) fn build(source: &ParsedSource) -> syn::Result<ScopeIndex> {
+pub(super) fn build(source: &ParsedSource) -> Result<ScopeIndex> {
     build_with_pattern_constants(source, &BTreeSet::new())
 }
 
 pub(super) fn build_with_pattern_constants(
     source: &ParsedSource,
     constants: &BTreeSet<(LineColumn, String)>,
-) -> syn::Result<ScopeIndex> {
+) -> Result<ScopeIndex> {
     let mut builder = Builder {
         pattern_constants: constants.clone(),
         index: ScopeIndex {
@@ -38,15 +40,14 @@ pub(super) fn build_with_pattern_constants(
     builder.visit_file(&source.file);
     if let Some(error) = builder.error {
         let at = error.span().start();
-        Err(syn::Error::new(
-            error.span(),
-            format!(
-                "{}:{}:{}: cannot index lexical context: {error}",
-                source.path.display(),
-                at.line,
-                at.column + 1,
-            ),
-        ))
+        let message = format!(
+            "{}:{}:{}: cannot index lexical context: {error}",
+            source.path.display(),
+            at.line,
+            at.column + 1
+        );
+        let range = SourceRange::from_span(error.span());
+        Err(error.context(message).with_site(Origin::Source, range))
     } else {
         Ok(builder.index)
     }
@@ -56,13 +57,27 @@ pub(super) struct Builder {
     pub pattern_constants: BTreeSet<(LineColumn, String)>,
     pub index: ScopeIndex,
     pub current: ScopeId,
-    pub error: Option<syn::Error>,
+    pub error: Option<Error>,
 }
 
 impl Builder {
     pub fn fail(&mut self, span: Span, message: &str) {
+        self.fail_kind(span, Kind::UnsupportedContext, message);
+    }
+
+    fn fail_kind(&mut self, span: Span, kind: Kind, message: &str) {
         if self.error.is_none() {
-            self.error = Some(syn::Error::new(span, message));
+            self.error = Some(Error::new(span, message).with_kind(kind));
+        }
+    }
+
+    fn fail_named(&mut self, span: Span, kind: Kind, name: String, message: &str) {
+        if self.error.is_none() {
+            self.error = Some(
+                Error::new(span, message)
+                    .with_kind(kind)
+                    .with_subject(name, None),
+            );
         }
     }
 
@@ -170,6 +185,7 @@ impl Builder {
                     self.fail(item.span(), "unnamed macro definition");
                 }
             }
+            syn::Item::Macro(item) => self.fail_named(item.span(), Kind::Macro, item.mac.path.to_token_stream().to_string(), "item-producing macros require expansion analysis"),
             syn::Item::Use(item) => self.register_import(item),
             // Implementations and methods do not introduce lexical names.
             syn::Item::Impl(_) => {}
@@ -473,12 +489,19 @@ impl<'ast> Visit<'ast> for Builder {
     }
 
     fn visit_expr_macro(&mut self, node: &'ast syn::ExprMacro) {
-        self.fail(node.span(), "macro expressions require expansion analysis");
+        self.fail_named(
+            node.span(),
+            Kind::Macro,
+            node.mac.path.to_token_stream().to_string(),
+            "macro expressions require expansion analysis",
+        );
     }
 
     fn visit_stmt_macro(&mut self, node: &'ast syn::StmtMacro) {
-        self.fail(
+        self.fail_named(
             node.span(),
+            Kind::Macro,
+            node.mac.path.to_token_stream().to_string(),
             "macro statements may introduce unknown bindings",
         );
     }
@@ -490,9 +513,18 @@ impl<'ast> Visit<'ast> for Builder {
                 "custom #[path] modules require source-layout analysis",
             );
         } else if attr.path().is_ident("cfg") || attr.path().is_ident("cfg_attr") {
-            self.fail(
+            self.fail_named(
                 attr.span(),
+                Kind::Conditional,
+                attr.path().to_token_stream().to_string(),
                 "conditional compilation cannot be resolved by lexical indexing",
+            );
+        } else if attr.path().is_ident("derive") {
+            self.fail_named(
+                attr.span(),
+                Kind::Macro,
+                attr.path().to_token_stream().to_string(),
+                "unsupported attribute: derive macros require expansion analysis",
             );
         } else if !["doc", "allow", "warn", "deny", "forbid", "expect"]
             .iter()

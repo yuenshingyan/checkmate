@@ -1,4 +1,5 @@
 //! Checked inherent implementations for copied nominal types. No trait inference.
+use crate::diagnostics::{Error, Kind, Result};
 mod methods;
 
 use quote::ToTokens;
@@ -16,7 +17,7 @@ use crate::source::ast::{Selection, SourceRange};
 pub(crate) fn dependencies(
     resolver: &Resolver<'_>,
     owner: DeclarationId,
-) -> syn::Result<Vec<Dependency>> {
+) -> Result<Vec<Dependency>> {
     let mut result = Vec::new();
     for item in resolver.implementations.get(&owner).into_iter().flatten() {
         let mut collector = Collector {
@@ -49,7 +50,7 @@ pub(super) fn check_root_methods(
     references: &References,
     resolved: &[Resolved],
     selection: &Selection<'_>,
-) -> syn::Result<()> {
+) -> Result<()> {
     let targets = references
         .occurrences
         .iter()
@@ -76,11 +77,7 @@ pub(super) fn check_root_methods(
         } else {
             ReferenceOrigin::Output
         };
-        resolver.diagnostic(
-            selection,
-            &ReferenceSite { origin, range },
-            &err.to_string(),
-        )
+        resolver.diagnostic(selection, &ReferenceSite { origin, range }, err)
     })?;
     let source_calls = calls
         .into_iter()
@@ -102,7 +99,7 @@ pub(super) fn check_root_methods(
                 origin: ReferenceOrigin::Source,
                 range: SourceRange::from_span(err.span()),
             },
-            &err.to_string(),
+            err,
         )
     })
 }
@@ -116,18 +113,25 @@ type Targets = BTreeMap<Key, Resolved>;
 struct Collector<'a, 'source> {
     resolver: &'a Resolver<'source>,
     references: Vec<Dependency>,
-    failure: Option<syn::Error>,
+    failure: Option<Error>,
 }
 impl Collector<'_, '_> {
     fn fail(&mut self, node: &impl Spanned, message: &str) {
-        let at = node.span().start();
-        self.failure.get_or_insert_with(|| {
-            error(&format!(
-                "implementation {}:{}: {message}",
-                at.line,
-                at.column + 1
-            ))
-        });
+        self.fail_error(
+            node,
+            Error::new(node.span(), message).with_kind(Kind::UnsafePromotion),
+        );
+    }
+    fn fail_error(&mut self, node: &impl Spanned, failure: Error) {
+        if self.failure.is_none() {
+            let at = node.span().start();
+            let message = format!("implementation {}:{}: {failure}", at.line, at.column + 1);
+            self.failure = Some(
+                failure
+                    .context(message)
+                    .with_site(ReferenceOrigin::Source, SourceRange::of(node)),
+            );
+        }
     }
     fn record(&mut self, path: &syn::Path, usage: ReferenceUse) {
         if self.failure.is_some() {
@@ -180,7 +184,10 @@ impl Collector<'_, '_> {
                 layout: false,
                 expansion: false,
             }),
-            Err(err) => self.fail(path, &format!("{}: {err}", path.to_token_stream())),
+            Err(err) => {
+                let message = format!("{}: {err}", path.to_token_stream());
+                self.fail_error(path, err.context(message));
+            }
         }
     }
 }

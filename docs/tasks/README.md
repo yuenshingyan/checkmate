@@ -29,7 +29,7 @@ external types/imports to be available at its invocation site. See the
 | [x] | [007 — Build the dependency graph](007-dependency-graph.md) | 006 |
 | [x] | [008 — Promote self-contained local types](008-local-types.md) | 007 |
 | [x] | [009 — Handle a conservative implementation subset](009-implementations.md) | 008 |
-| [ ] | [010 — Report unsupported context precisely](010-diagnostics.md) | 006, 008, 009 |
+| [x] | [010 — Report unsupported context precisely](010-diagnostics.md) | 006, 008, 009 |
 | [ ] | [011 — Integrate an opt-in automatic-context pipeline](011-pipeline.md) | 007–010 |
 | [ ] | [012 — Protect discovered context with snapshots](012-context-snapshots.md) | 011 |
 | [ ] | [013 — Add end-to-end regression coverage](013-regression-tests.md) | 011, 012 |
@@ -56,10 +56,11 @@ Review/merge in this order (or compare each branch against its listed base):
 | 007 | `task/007-dependency-graph` | `task/006-original-declarations` |
 | 008 | `task/008-local-types` | `task/007-dependency-graph` |
 | 009 | `task/009-implementations` | `task/008-local-types` |
+| 010 | `task/010-diagnostics` | `task/009-implementations` |
 
-Tasks 002–009 are tested internal foundations, deliberately test-gated until
+Tasks 002–010 are tested internal foundations, deliberately test-gated until
 011 adds the public opt-in pipeline. The macro still does not accept `context = "auto"`.
-Next: task 010 (diagnostics), then 011 (verified opt-in pipeline integration).
+Next: task 011 (verified opt-in pipeline integration), then 012 (context snapshots).
 The [current examples](../../examples/README.md) illustrate these foundations and the
 existing public API; they do not mark task 014's integrated-feature documentation complete.
 

@@ -26,10 +26,12 @@ cargo test -p checkmate --lib walkthroughs -- --nocapture --test-threads=1
 
 These nine tests print and assert analysis of the **same source/configuration**
 used by the struct-return, local-types, and inherent-methods examples. An expected diagnostic is checked by a passing
-test; it is not an intentionally broken workspace build.
+test; it is not an intentionally broken workspace build. The missing-input walkthrough
+prints a [structured diagnostic](../docs/diagnostics.md) with snippet identity and bounded
+source context.
 
 Automatic context is not publicly enabled yet: do not add `context = "auto"` to
-`extract_fn!`. Tasks 010–011 still need to improve diagnostics and integrate generation with verified invocation placement.
+`extract_fn!`. Task 011 still needs to integrate generation and structured diagnostics with verified invocation placement.
 No example modifies its selected source, inserts snippet markers, or updates a snapshot
 during compilation. Keep the configured ranges and reviewed snapshots synchronized
 when deliberately editing example source.

@@ -12,8 +12,8 @@ markers, annotations, or wrappers to the original code.
 - Get source-aware extraction errors and automatic rebuilds when input files change.
 
 Users write their own tests. Automatic discovery of surrounding types/imports is
-**not publicly enabled yet**. Scope/dependency analysis, local-type promotion, and checked
-inherent implementations exist as tested internal foundations; see the [task backlog](docs/tasks/README.md).
+**not publicly enabled yet**. Scope/dependency analysis, local-type promotion, checked
+inherent implementations, and [structured diagnostics](docs/diagnostics.md) exist as tested internal foundations; see the [task backlog](docs/tasks/README.md).
 
 ## Quick start
 

@@ -4,6 +4,7 @@
 //! path/local identity or reports unsupported context. Nothing infers input types,
 //! runs initializers, or copies original declarations. Import emission is test-only.
 
+use crate::diagnostics::{Error, Result};
 pub(crate) mod catalog;
 mod collect;
 pub(crate) mod declarations;
@@ -28,12 +29,7 @@ pub(crate) enum ReferenceUse {
     TypeOrConst,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum ReferenceOrigin {
-    Source,
-    Signature,
-    Output,
-}
+pub(crate) use crate::diagnostics::Origin as ReferenceOrigin;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct ReferenceSite {
@@ -82,6 +78,24 @@ pub(crate) struct DeferredOperation {
     pub site: ReferenceSite,
 }
 
+/// Translate analysis-shell positions without presenting signature/output text as source.
+pub(crate) fn analysis_site(
+    mut range: SourceRange,
+    selection: SourceRange,
+    snippet_start: usize,
+) -> ReferenceSite {
+    let origin = if range.start.line < snippet_start {
+        ReferenceOrigin::Signature
+    } else if range.start.line - snippet_start < selection.end.line - selection.start.line {
+        range.start.line = selection.start.line + range.start.line - snippet_start;
+        range.end.line = selection.start.line + range.end.line - snippet_start;
+        ReferenceOrigin::Source
+    } else {
+        ReferenceOrigin::Output
+    };
+    ReferenceSite { origin, range }
+}
+
 pub(crate) struct References {
     pub snippet_start: usize,
     pub occurrences: Vec<Reference>,
@@ -100,9 +114,9 @@ pub(crate) fn collect_references(
     selection: &Selection<'_>,
     signature: &Signature,
     output: Option<&Expr>,
-) -> syn::Result<References> {
+) -> Result<References> {
     if index.source_path != source.path {
-        return Err(syn::Error::new(
+        return Err(Error::new(
             signature.ident.span(),
             "reference collection index does not belong to the selected source",
         ));
@@ -125,14 +139,25 @@ pub(crate) fn collect_references(
             .map(|expr| expr.to_token_stream().to_string())
             .unwrap_or_default()
     );
-    let context_error = |error: syn::Error| {
-        syn::Error::new(
-            error.span(),
-            format!(
-                "{}:{start}-{end}: cannot analyze supplied signature/snippet/output together: {error}",
-                source.path.display(),
-            ),
-        )
+    let context_error = |error: Error| {
+        let message = format!(
+            "{}:{start}-{end}: cannot analyze supplied signature/snippet/output together: {error}",
+            source.path.display()
+        );
+        let mut range = error
+            .site
+            .as_ref()
+            .map_or_else(|| SourceRange::from_span(error.span()), |site| site.range);
+        let origin = if range.start.line < snippet_start {
+            ReferenceOrigin::Signature
+        } else if range.start.line <= snippet_end {
+            range.start.line = start + range.start.line - snippet_start;
+            range.end.line = start + range.end.line - snippet_start;
+            ReferenceOrigin::Source
+        } else {
+            ReferenceOrigin::Output
+        };
+        error.context(message).with_site(origin, range)
     };
     let generated = ParsedSource::parse("<extracted analysis>", text).map_err(context_error)?;
     let pattern_constants = collect::pattern_constants(index, selection, snippet_start);

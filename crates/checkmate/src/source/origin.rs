@@ -2,6 +2,7 @@
 //! guess alone. Initial support is deliberately limited to library/binary roots.
 //! No out-of-line module files or dependency source trees are loaded.
 
+use crate::diagnostics::{Error, Kind, Result};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
@@ -30,8 +31,10 @@ pub(crate) struct SourceOrigin {
 }
 
 impl SourceOrigin {
-    pub fn discover(package_root: &Path, source: &Path) -> syn::Result<Self> {
-        let fail = |message: String| syn::Error::new(Span::call_site(), message);
+    pub fn discover(package_root: &Path, source: &Path) -> Result<Self> {
+        let fail = |message: String| {
+            Error::new(Span::call_site(), message).with_kind(Kind::SourceIdentity)
+        };
         let package_root = package_root.canonicalize().map_err(|e| {
             fail(format!(
                 "cannot locate package {}: {e}",
@@ -73,7 +76,7 @@ impl SourceOrigin {
             .canonicalize()
             .map_err(|e| fail(format!("cannot locate source: {e}")))?;
         let mut targets: Vec<(TargetKind, String, PathBuf)> = Vec::new();
-        let enabled = |key: &str| -> syn::Result<bool> {
+        let enabled = |key: &str| -> Result<bool> {
             match package.get(key) {
                 None => Ok(true),
                 Some(toml::Value::Boolean(enabled)) => Ok(*enabled),
@@ -218,22 +221,24 @@ impl SourceOrigin {
     }
 }
 
-fn string(table: &toml::Table, key: &str) -> syn::Result<Option<String>> {
+fn string(table: &toml::Table, key: &str) -> Result<Option<String>> {
     table
         .get(key)
         .map(|value| {
             value.as_str().map(str::to_owned).ok_or_else(|| {
-                syn::Error::new(Span::call_site(), format!("{key} must be a string"))
+                Error::new(Span::call_site(), format!("{key} must be a string"))
+                    .with_kind(Kind::SourceIdentity)
             })
         })
         .transpose()
 }
 
-fn dependencies(document: &toml::Value, names: &mut BTreeSet<String>) -> syn::Result<()> {
+fn dependencies(document: &toml::Value, names: &mut BTreeSet<String>) -> Result<()> {
     for key in ["dependencies", "dev-dependencies"] {
         if let Some(table) = document.get(key) {
             let table = table.as_table().ok_or_else(|| {
-                syn::Error::new(Span::call_site(), format!("{key} must be a table"))
+                Error::new(Span::call_site(), format!("{key} must be a table"))
+                    .with_kind(Kind::SourceIdentity)
             })?;
             // Dependency keys are the local aliases (including workspace-inherited
             // and renamed dependencies). Availability is checked later, not here.

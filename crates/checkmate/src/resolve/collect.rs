@@ -1,3 +1,4 @@
+use crate::diagnostics::{Error, Kind, Result};
 use proc_macro2::{LineColumn, Span};
 use quote::ToTokens;
 use syn::spanned::Spanned;
@@ -68,7 +69,7 @@ pub(super) fn visit(
     generated_index: &ScopeIndex,
     snippet_start: usize,
     snippet_end: usize,
-) -> syn::Result<Collected> {
+) -> Result<Collected> {
     let selected_scope = index
         .scopes
         .iter()
@@ -76,7 +77,7 @@ pub(super) fn visit(
             scope.kind == ScopeKind::Block && scope.range == SourceRange::of(selection.block)
         })
         .ok_or_else(|| {
-            syn::Error::new(
+            Error::new(
                 Span::call_site(),
                 "selected block is absent from the source index",
             )
@@ -85,9 +86,7 @@ pub(super) fn visit(
         .scopes
         .iter()
         .position(|scope| scope.kind == ScopeKind::Function && scope.parent == Some(ScopeId(0)))
-        .ok_or_else(|| {
-            syn::Error::new(Span::call_site(), "analysis wrapper has no function scope")
-        })?;
+        .ok_or_else(|| Error::new(Span::call_site(), "analysis wrapper has no function scope"))?;
     let inputs = generated_index
         .declarations
         .iter()
@@ -129,7 +128,7 @@ struct Collector<'a> {
     wrapper: ScopeId,
     inputs: BTreeSet<String>,
     result: Collected,
-    error: Option<syn::Error>,
+    error: Option<Error>,
 }
 
 impl Collector<'_> {
@@ -163,6 +162,10 @@ impl Collector<'_> {
     }
 
     fn fail(&mut self, span: Span, message: &str) {
+        self.fail_error(span, Error::new(span, message));
+    }
+
+    fn fail_error(&mut self, span: Span, failure: Error) {
         if self.error.is_some() {
             return;
         }
@@ -176,15 +179,13 @@ impl Collector<'_> {
             ReferenceOrigin::Signature => "supplied signature".into(),
             ReferenceOrigin::Output => "output expression".into(),
         };
-        self.error = Some(syn::Error::new(
-            span,
-            format!(
-                "{}:{}-{}: {location}: {message}",
-                self.source.path.display(),
-                self.selection.range.start.line,
-                self.selection.range.end.line - 1,
-            ),
-        ));
+        let message = format!(
+            "{}:{}-{}: {location}: {failure}",
+            self.source.path.display(),
+            self.selection.range.start.line,
+            self.selection.range.end.line - 1
+        );
+        self.error = Some(failure.context(message).with_site(site.origin, site.range));
     }
 
     fn generated_lookup(&self, span: Span, namespace: Namespace, name: &str) -> Lookup {
@@ -252,7 +253,12 @@ impl Collector<'_> {
             self.result.required_inputs.insert(name.into());
             Some(ReferenceTarget::Input(name.into()))
         } else {
-            self.fail(span, &format!("required input `{name}` is not supplied by fn_sig; add a typed parameter instead of copying or running its initializer"));
+            let kind = match self.original_lookup(&self.site(span), Namespace::Value, name) {
+                Lookup::Found(id) => Some(self.index.declarations[id.0].kind),
+                _ => None,
+            };
+            self.fail_error(span, Error::new(span, format!("required input `{name}` is not supplied by fn_sig; add a typed parameter instead of copying or running its initializer"))
+                .with_kind(Kind::MissingInput).with_subject(name, kind));
             None
         }
     }
@@ -630,9 +636,13 @@ impl<'ast> Visit<'ast> for Collector<'_> {
     }
 
     fn visit_macro(&mut self, node: &'ast syn::Macro) {
-        self.fail(
+        self.fail_error(
             node.span(),
-            "opaque macro tokens require expansion before reference collection",
+            Error::new(
+                node.span(),
+                "opaque macro tokens require expansion before reference collection",
+            )
+            .with_kind(Kind::Macro),
         );
     }
 

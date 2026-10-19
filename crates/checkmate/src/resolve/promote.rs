@@ -1,6 +1,7 @@
 //! Test-gated local-type promotion plans. No original source or baseline is written.
 //! Invocation placement and public integration remain task 011 responsibilities.
 
+use crate::diagnostics::{Error, Result};
 mod rewrite;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -11,7 +12,12 @@ use syn::visit::{self, Visit};
 use syn::visit_mut::VisitMut;
 
 use super::References;
-use super::catalog::{canonical, error};
+use super::catalog::canonical;
+use crate::diagnostics::{Kind, Origin};
+use syn::spanned::Spanned;
+fn error(message: &str) -> Error {
+    super::catalog::error(message).with_kind(Kind::UnsafePromotion)
+}
 use super::declarations::Resolver;
 use super::graph::{Graph, LocalKind, NodeId, NodeKind};
 use crate::scope::DeclarationId;
@@ -31,14 +37,33 @@ impl PromotionPlan {
         references: &References,
         selection: &Selection<'_>,
         occupied: &BTreeSet<String>,
-    ) -> syn::Result<Self> {
+    ) -> Result<Self> {
         let graph = Graph::build(resolver, references, selection)?;
         let [syn::Item::Fn(function)] = references.generated.file.items.as_slice() else {
             return Err(error(
                 "promotion requires the collected single-function analysis shell",
             ));
         };
-        validate(function)?;
+        validate(function).map_err(|err| {
+            let site = super::analysis_site(
+                SourceRange::from_span(err.span()),
+                selection.range,
+                references.snippet_start,
+            );
+            let err = err.with_site(site.origin, site.range);
+            if site.origin == Origin::Source {
+                for (id, node) in &graph.nodes {
+                    if matches!(node.kind, NodeKind::Local(_))
+                        && let NodeId::Source(declaration) = id
+                        && let Ok(item) = resolver.catalog.item(*declaration)
+                        && SourceRange::of(item).contains(site.range)
+                    {
+                        return graph.diagnostic(resolver, selection.range, id, err);
+                    }
+                }
+            }
+            err
+        })?;
         let function_name = canonical(&function.sig.ident.to_string()).to_owned();
         if occupied.iter().any(|name| canonical(name) == function_name) {
             return Err(error(
@@ -88,9 +113,9 @@ impl PromotionPlan {
             };
             let name = format!("{prefix}{suffix}");
             if !reserved.insert(name.clone()) {
-                return Err(error(&format!(
+                return Err(graph.diagnostic(resolver, selection.range, id, error(&format!(
                     "generated name `{name}` conflicts with a known identifier; choose another extraction name"
-                )));
+                ))));
             }
             names.insert(id.clone(), syn::Ident::new(&name, Span::call_site()));
         }
@@ -100,6 +125,7 @@ impl PromotionPlan {
         for id in &graph.emission_order {
             let node = &graph.nodes[id];
             let name = &names[id];
+            (|| -> Result<()> {
             match &node.kind {
                 NodeKind::Original(path) => items.push(syn::parse2(path.import_as(name)?)?),
                 NodeKind::External => {
@@ -113,7 +139,12 @@ impl PromotionPlan {
                         return Err(error("local graph node has no declaration identity"));
                     };
                     let mut item = resolver.catalog.item(*declaration)?.clone();
-                    validate(&item)?;
+                    validate(&item).map_err(|err| {
+                        let entry = &resolver.catalog.index.declarations[declaration.0];
+                        let range = SourceRange::from_span(err.span());
+                        err.with_site(Origin::Source, range)
+                            .with_subject(&entry.name, Some(entry.kind))
+                    })?;
                     let mut rewriter = rewrite::Rewriter::new(&names);
                     for reference in &node.references {
                         if SourceRange::of(&item).contains(reference.range) {
@@ -154,7 +185,12 @@ impl PromotionPlan {
                     {
                         let range = SourceRange::of(*implementation);
                         let mut item = syn::Item::Impl((*implementation).clone());
-                        validate(&item)?;
+                        validate(&item).map_err(|err| {
+                            let entry = &resolver.catalog.index.declarations[declaration.0];
+                            let range = SourceRange::from_span(err.span());
+                            err.with_site(Origin::Source, range)
+                                .with_subject(&entry.name, Some(entry.kind))
+                        })?;
                         let mut rewriter = rewrite::Rewriter::new(&names);
                         for reference in &node.references {
                             if range.contains(reference.range) {
@@ -167,6 +203,8 @@ impl PromotionPlan {
                     }
                 }
             }
+            Ok(())
+            })().map_err(|err| graph.diagnostic(resolver, selection.range, id, err))?;
         }
         let mut function = function.clone();
         let mut rewriter = rewrite::Rewriter::new(&names);
@@ -194,7 +232,7 @@ impl PromotionPlan {
 
 // Relocated visibility restrictions and semantic attributes can change meaning.
 // Preserve inherited/public visibility verbatim; never add `pub` to a field.
-fn validate(node: &impl Inspect) -> syn::Result<()> {
+fn validate(node: &impl Inspect) -> Result<()> {
     let mut policy = Policy { failure: None };
     node.inspect(&mut policy);
     match policy.failure {
@@ -218,23 +256,23 @@ impl Inspect for syn::ItemFn {
 }
 
 struct Policy {
-    failure: Option<syn::Error>,
+    failure: Option<Error>,
 }
 impl<'ast> Visit<'ast> for Policy {
-    fn visit_item_use(&mut self, _: &'ast syn::ItemUse) {
-        self.failure.get_or_insert_with(|| error("use declarations inside the selected code/output require import-relocation analysis; select statements after surrounding imports"));
+    fn visit_item_use(&mut self, item: &'ast syn::ItemUse) {
+        self.failure.get_or_insert_with(|| Error::new(item.span(), "use declarations inside the selected code/output require import-relocation analysis; select statements after surrounding imports").with_kind(Kind::UnsafePromotion));
     }
 
     fn visit_attribute(&mut self, attribute: &'ast syn::Attribute) {
         if !(attribute.path().is_ident("doc")
             && matches!(&attribute.meta, syn::Meta::NameValue(value) if matches!(&value.value, syn::Expr::Lit(value) if matches!(value.lit, syn::Lit::Str(_)))))
         {
-            self.failure.get_or_insert_with(|| error("relocated context supports only literal documentation attributes; semantic attributes and doc macros require analysis"));
+            self.failure.get_or_insert_with(|| Error::new(attribute.span(), "relocated context supports only literal documentation attributes; semantic attributes and doc macros require analysis").with_kind(Kind::UnsafePromotion));
         }
     }
     fn visit_visibility(&mut self, visibility: &'ast syn::Visibility) {
         if matches!(visibility, syn::Visibility::Restricted(_)) {
-            self.failure.get_or_insert_with(|| error("restricted visibility changes meaning when relocating local context; visibility is never widened"));
+            self.failure.get_or_insert_with(|| Error::new(visibility.span(), "restricted visibility changes meaning when relocating local context; visibility is never widened").with_kind(Kind::UnsafePromotion));
         }
         visit::visit_visibility(self, visibility);
     }

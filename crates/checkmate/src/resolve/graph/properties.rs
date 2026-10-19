@@ -1,6 +1,7 @@
 //! Bounded, seed-free properties. No rustc subprocesses or property-test dependency.
 //! Registered only for tests; these do not expose automatic context publicly.
 use super::*;
+use crate::diagnostics::Result;
 use crate::resolve::declarations::ReuseSite;
 use crate::resolve::declarations::tests::Fixture;
 
@@ -124,7 +125,7 @@ fn fixture(items: &str) -> Fixture {
     ))
 }
 
-fn build(f: &Fixture, names: &[&str]) -> syn::Result<Graph> {
+fn build(f: &Fixture, names: &[&str]) -> Result<Graph> {
     let resolver = f.resolver(ReuseSite::SameTarget);
     let at = f.position("let selected");
     let roots = names
@@ -137,7 +138,7 @@ fn build(f: &Fixture, names: &[&str]) -> syn::Result<Graph> {
                 at,
             )
         })
-        .collect::<syn::Result<Vec<_>>>()?;
+        .collect::<Result<Vec<_>>>()?;
     Graph::from_roots(
         &resolver,
         roots,

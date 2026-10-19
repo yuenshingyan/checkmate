@@ -1,5 +1,6 @@
 //! Borrow original named-item syntax without copying or changing declarations.
 
+use crate::diagnostics::{Error, Kind, Result};
 use std::collections::BTreeMap;
 
 use proc_macro2::{LineColumn, Span};
@@ -16,11 +17,12 @@ pub(crate) struct Catalog<'a> {
 }
 
 impl<'a> Catalog<'a> {
-    pub fn new(source: &'a ParsedSource, index: &'a ScopeIndex) -> syn::Result<Self> {
+    pub fn new(source: &'a ParsedSource, index: &'a ScopeIndex) -> Result<Self> {
         if source.path != index.source_path {
-            return Err(error(
-                "catalog and lexical index belong to different source files",
-            ));
+            return Err(
+                error("catalog and lexical index belong to different source files")
+                    .with_kind(Kind::InternalInvariant),
+            );
         }
         struct Items<'a> {
             identities: BTreeMap<(LineColumn, LineColumn, String), usize>,
@@ -81,14 +83,14 @@ impl<'a> Catalog<'a> {
             .map(|(_, id)| id)
     }
 
-    pub fn item(&self, id: DeclarationId) -> syn::Result<&'a syn::Item> {
+    pub fn item(&self, id: DeclarationId) -> Result<&'a syn::Item> {
         self.items
             .get(id.0)
             .and_then(|item| *item)
             .ok_or_else(|| error("declaration is not an indexed named item"))
     }
 
-    pub fn module_scope(&self, id: DeclarationId) -> syn::Result<ScopeId> {
+    pub fn module_scope(&self, id: DeclarationId) -> Result<ScopeId> {
         let declaration = &self.index.declarations[id.0];
         self.index
             .scopes
@@ -102,7 +104,7 @@ impl<'a> Catalog<'a> {
             .ok_or_else(|| error("module body is unavailable in the same-file catalog"))
     }
 
-    pub fn global_path(&self, id: DeclarationId) -> syn::Result<Option<Vec<String>>> {
+    pub fn global_path(&self, id: DeclarationId) -> Result<Option<Vec<String>>> {
         let declaration = &self.index.declarations[id.0];
         if matches!(
             self.index.scopes[declaration.scope.0].kind,
@@ -116,7 +118,7 @@ impl<'a> Catalog<'a> {
         }
     }
 
-    pub fn item_is_public(&self, id: DeclarationId) -> syn::Result<bool> {
+    pub fn item_is_public(&self, id: DeclarationId) -> Result<bool> {
         Ok(matches!(
             item_visibility(self.item(id)?),
             Some(syn::Visibility::Public(_))
@@ -205,6 +207,6 @@ pub(crate) fn canonical(name: &str) -> &str {
     name.strip_prefix("r#").unwrap_or(name)
 }
 
-pub(crate) fn error(message: &str) -> syn::Error {
-    syn::Error::new(Span::call_site(), message)
+pub(crate) fn error(message: &str) -> Error {
+    Error::new(Span::call_site(), message)
 }

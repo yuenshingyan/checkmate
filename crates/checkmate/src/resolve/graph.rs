@@ -2,6 +2,7 @@
 //! Reused originals are terminals: inspecting/copying their private implementation
 //! dependencies would be unnecessary and could break their identity/privacy.
 
+use crate::diagnostics::{Error, Kind, Origin, Result, Subject};
 mod collect;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -67,14 +68,31 @@ pub(crate) struct Graph {
     // Item names are hoisted in Rust. Stable ID order supports recursive groups;
     // this is deliberately NOT a claimed topological ordering of a DAG.
     pub emission_order: Vec<NodeId>,
+    // Retain discovery ancestry for promotion-policy failures after graph success.
+    parents: BTreeMap<NodeId, Option<NodeId>>,
 }
 
 impl Graph {
+    pub(super) fn diagnostic(
+        &self,
+        resolver: &Resolver<'_>,
+        selection: SourceRange,
+        node: &NodeId,
+        failure: Error,
+    ) -> Error {
+        Trace {
+            resolver,
+            selection,
+            parents: &self.parents,
+        }
+        .failure(node, failure)
+    }
+
     pub fn build(
         resolver: &Resolver<'_>,
         references: &References,
         selection: &Selection<'_>,
-    ) -> syn::Result<Self> {
+    ) -> Result<Self> {
         let roots = resolver.references(references, selection)?;
         Self::from_roots(resolver, roots, selection.range)
     }
@@ -83,7 +101,7 @@ impl Graph {
         resolver: &Resolver<'_>,
         roots: Vec<Resolved>,
         selection: SourceRange,
-    ) -> syn::Result<Self> {
+    ) -> Result<Self> {
         let mut builder = Builder {
             resolver,
             selection,
@@ -92,14 +110,14 @@ impl Graph {
                 root_references: roots.clone(),
                 nodes: BTreeMap::new(),
                 emission_order: Vec::new(),
+                parents: BTreeMap::new(),
             },
             pending: BTreeSet::new(),
-            parents: BTreeMap::new(),
         };
         for root in roots {
             if let Some(id) = builder.insert(&root)? {
                 builder.graph.roots.insert(id.clone());
-                builder.parents.insert(id, None);
+                builder.graph.parents.insert(id, None);
             }
         }
         // Every node is expanded once. Inserting an existing node never queues it
@@ -109,17 +127,18 @@ impl Graph {
                 unreachable!()
             };
             let mut references = collect::dependencies(resolver, declaration)
-                .map_err(|err| builder.failure(&id, &err.to_string()))?;
+                .map_err(|err| builder.failure(&id, err))?;
             references.extend(
                 super::implementations::dependencies(resolver, declaration)
-                    .map_err(|err| builder.failure(&id, &err.to_string()))?,
+                    .map_err(|err| builder.failure(&id, err))?,
             );
             for dependency in &references {
                 if let Some(child) = builder
                     .insert(&dependency.target)
-                    .map_err(|err| builder.failure(&id, &err.to_string()))?
+                    .map_err(|err| builder.failure(&id, err))?
                 {
                     builder
+                        .graph
                         .parents
                         .entry(child.clone())
                         .or_insert_with(|| Some(id.clone()));
@@ -152,16 +171,21 @@ impl Graph {
         if let Some(cycle) = cycle(&builder.graph.nodes, true) {
             return Err(builder.failure(
                 &cycle[0],
-                &format!("cyclic type alias expansion: {}", builder.labels(&cycle)),
+                error(&format!(
+                    "cyclic type alias expansion: {}",
+                    builder.labels(&cycle)
+                ))
+                .with_kind(Kind::UnsafePromotion),
             ));
         }
         if let Some(cycle) = cycle(&builder.graph.nodes, false) {
             return Err(builder.failure(
                 &cycle[0],
-                &format!(
+                error(&format!(
                     "recursive type dependency without proven indirection: {}",
                     builder.labels(&cycle)
-                ),
+                ))
+                .with_kind(Kind::UnsafePromotion),
             ));
         }
         builder.graph.emission_order = builder.graph.nodes.keys().cloned().collect();
@@ -174,11 +198,10 @@ struct Builder<'a, 'source> {
     selection: SourceRange,
     graph: Graph,
     pending: BTreeSet<NodeId>,
-    parents: BTreeMap<NodeId, Option<NodeId>>,
 }
 
 impl Builder<'_, '_> {
-    fn insert(&mut self, resolved: &Resolved) -> syn::Result<Option<NodeId>> {
+    fn insert(&mut self, resolved: &Resolved) -> Result<Option<NodeId>> {
         let (id, kind) = match resolved {
             Resolved::Binding => return Ok(None),
             Resolved::External(path) => (NodeId::External(path.clone()), NodeKind::External),
@@ -228,18 +251,49 @@ impl Builder<'_, '_> {
         Ok(Some(id))
     }
 
+    fn failure(&self, node: &NodeId, failure: Error) -> Error {
+        self.graph
+            .diagnostic(self.resolver, self.selection, node, failure)
+    }
+    fn labels(&self, nodes: &[NodeId]) -> String {
+        Trace {
+            resolver: self.resolver,
+            selection: self.selection,
+            parents: &self.graph.parents,
+        }
+        .labels(nodes)
+    }
+}
+
+struct Trace<'a, 'source> {
+    resolver: &'a Resolver<'source>,
+    selection: SourceRange,
+    parents: &'a BTreeMap<NodeId, Option<NodeId>>,
+}
+impl Trace<'_, '_> {
     fn labels(&self, nodes: &[NodeId]) -> String {
         nodes
             .iter()
-            .map(|id| match id {
-                NodeId::Source(id) => self.resolver.catalog.index.declarations[id.0].name.clone(),
-                NodeId::External(path) => path.segments.join("::"),
+            .enumerate()
+            .filter(|(i, _)| nodes.len() <= 8 || *i < 4 || *i >= nodes.len() - 4)
+            .map(|(i, id)| {
+                let label = match id {
+                    NodeId::Source(id) => {
+                        self.resolver.catalog.index.declarations[id.0].name.clone()
+                    }
+                    NodeId::External(path) => path.segments.join("::"),
+                };
+                if nodes.len() > 8 && i == nodes.len() - 4 {
+                    format!("... ({} omitted) -> {label}", nodes.len() - 8)
+                } else {
+                    label
+                }
             })
             .collect::<Vec<_>>()
             .join(" -> ")
     }
 
-    fn failure(&self, node: &NodeId, message: &str) -> syn::Error {
+    fn failure(&self, node: &NodeId, mut failure: Error) -> Error {
         let mut chain = vec![node.clone()];
         let mut next = node;
         while let Some(Some(parent)) = self.parents.get(next) {
@@ -247,13 +301,45 @@ impl Builder<'_, '_> {
             next = parent;
         }
         chain.reverse();
-        error(&format!(
-            "{}:{}-{}: dependency chain {}: {message}",
+        let message = format!(
+            "{}:{}-{}: dependency chain {}: {failure}",
             self.resolver.catalog.index.source_path.display(),
             self.selection.start.line,
             self.selection.end.line - 1,
             self.labels(&chain)
-        ))
+        );
+        if failure.kind == Kind::UnsupportedContext {
+            failure = failure.with_kind(Kind::UnsafePromotion);
+        }
+        if let NodeId::Source(id) = node {
+            let declaration = &self.resolver.catalog.index.declarations[id.0];
+            if failure.subject.is_none() {
+                failure = failure.with_subject(&declaration.name, Some(declaration.kind));
+            }
+            if failure.site.is_none() {
+                failure = failure.with_site(Origin::Source, declaration.range);
+            }
+        }
+        let omitted = chain.len().saturating_sub(8);
+        let subjects = chain
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| omitted == 0 || *i < 4 || *i >= chain.len() - 4)
+            .map(|(_, id)| match id {
+                NodeId::Source(id) => {
+                    let declaration = &self.resolver.catalog.index.declarations[id.0];
+                    Subject {
+                        name: declaration.name.clone(),
+                        kind: Some(declaration.kind),
+                    }
+                }
+                NodeId::External(path) => Subject {
+                    name: path.segments.join("::"),
+                    kind: None,
+                },
+            })
+            .collect();
+        failure.context(message).with_chain(subjects, omitted)
     }
 }
 

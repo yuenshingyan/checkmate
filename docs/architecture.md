@@ -24,6 +24,8 @@ All paths below are inside `crates/checkmate/src/`.
 | `source.rs` | Read-only UTF-8 source IO, dependency path literals, bounded source previews |
 | `source/ast.rs` | Test-gated automatic-mode foundation: whole-file AST, exact selection, enclosing scope locations |
 | `scope.rs`, `scope/build.rs`, `scope/patterns.rs` | Test-gated lexical namespaces, scope tree, declaration identities, binding visibility and pattern validation |
+| `scope/imports.rs` | Test-gated explicit import trees, aliases, module paths, and unvalidated path provenance |
+| `source/origin.rs` | Test-gated source-to-library/binary-root identity from the package manifest |
 | `snapshot.rs` | Compare selected source against a reviewed baseline; report first mismatch |
 | `generate.rs` | Signature parsing, inclusive line selection, snapshot validation, body parsing, token emission |
 | `tests.rs` | Unit tests for syntax, configuration, ranges, diagnostics, and snapshots |
@@ -65,7 +67,8 @@ captured or inferred. Ordinary rustc type, ownership, and visibility checks stil
 The [design contract](automatic-context.md) defines the opt-in syntax and safety
 boundary. The [automatic-context backlog](tasks/README.md) describes new source AST, scope,
 reference-resolution, and dependency-graph passes. Whole-file source selection and
-lexical scope indexing are implemented and unit-tested, but remain test-gated until
+lexical scope/import indexing and source-root mapping are implemented and unit-tested,
+but remain test-gated until
 task 011 integrates the opt-in pipeline. Reference/dependency resolution is not
 implemented yet.
 
@@ -73,9 +76,12 @@ The lexical index distinguishes hoisted items from position-dependent locals and
 tracks type/value/macro namespaces separately. It models closure capture, item
 capture barriers, module boundaries, condition chains, and pattern bindings. IDs
 are deterministic per traversal, not persisted cross-edit snapshot identities.
-Imports, implementations, conditional compilation, and opaque binding-producing
-syntax currently fail explicitly rather than produce an incomplete index. Bare
-unresolved prelude constructors in binding patterns also fail; qualified constructor
-patterns are unambiguous. Ordinary extraction is unaffected by these limitations.
+Explicit imports are indexed as namespace candidates, not claims about accessibility
+or enabled dependencies. Qualified source paths preserve `crate`/`self`/`super` meaning;
+manifest-based mapping distinguishes library and binary roots. Overlapping unproven
+import namespaces, imported binding-pattern names, implementations, conditional
+compilation, and opaque binding-producing syntax still fail explicitly. Bare unresolved
+prelude constructors in binding patterns also fail; qualified constructor patterns are
+unambiguous. Ordinary extraction is unaffected by these limitations.
 The current source/argument/generation separation provides places to add them without
 turning the public proc-macro entry point into the implementation itself.

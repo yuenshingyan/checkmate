@@ -459,7 +459,7 @@ fn unsupported_or_inconsistent_patterns_return_errors_not_partial_indexes() {
 #[test]
 fn unsupported_context_is_an_explicit_error() {
     for (text, message) in [
-        ("use other::Value; fn f() {}", "task 004"),
+        ("use other::*; fn f() {}", "glob imports"),
         ("fn f() { make_bindings!(); }", "macro statements"),
         ("fn f() { let x = value!(); }", "macro expressions"),
         (

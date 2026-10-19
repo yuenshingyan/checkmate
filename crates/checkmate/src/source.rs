@@ -4,6 +4,8 @@
 // opt-in pipeline. Ordinary extraction must still accept statement-only files.
 #[cfg(test)]
 pub(crate) mod ast;
+#[cfg(test)]
+pub(crate) mod origin;
 
 use std::path::Path;
 

@@ -2,7 +2,7 @@
 
 ## Setup and verification
 
-Use a Rust toolchain supporting edition 2024. Run commands at the repository root:
+Use Rust 1.88+ (edition 2024 and stable compiler source-location APIs). Run commands at the repository root:
 
 ```sh
 cargo fmt -p checkmate --check
@@ -30,7 +30,8 @@ cargo test -p checkmate --lib walkthroughs -- --nocapture --test-threads=1
 The internal walkthrough unit tests read the source and configuration in
 `examples/struct-return`, `examples/local-types`, and `examples/inherent-methods`; run them from a full repository checkout. They share the
 same source as the public integration tests, print their analysis, and assert the
-illustrated results. They do not enable automatic context in the public macro.
+illustrated results. They test individual stages separately from the new public
+`tests/automatic.rs` examples.
 
 ## Coverage and generated properties
 
@@ -45,8 +46,9 @@ cargo test -p checkmate --lib resolve::promote
 Promotion tests compile temporary original libraries and generated consumers with
 rustc. They verify runtime behavior and identity differences, not merely token strings.
 Task-009 implementation tests also compile the actual inherent-methods example source;
-all copied methods and their dependencies are checked, including unused ones. The public
-automatic-context pipeline is still disabled.
+all copied methods and their dependencies are checked, including unused ones. Task 011
+adds public-pipeline tests in `src/automatic/tests.rs` and `tests/automatic.rs`, including
+real Cargo expansion and rebuilds.
 
 ## Internal diagnostics
 
@@ -56,9 +58,20 @@ cargo test -p checkmate --lib walkthroughs::missing_input -- --nocapture
 ```
 
 See [the diagnostic contract](docs/diagnostics.md). Preserve typed error metadata through
-context wrappers; do not classify errors by matching messages. The future public adapter
-must call the bounded renderer with snippet identity/source context and an actual invocation
-span, not emit the legacy internal `Display` string. Error handling must remain read-only.
+context wrappers; do not classify errors by matching messages. The public adapter
+uses the bounded renderer with snippet identity/source context and an actual invocation
+span, not the legacy internal `Display` string. Error handling must remain read-only.
+
+## Parser backend boundary
+
+Automatic file analysis needs real file-relative spans. `proc_macro2`'s compiler parser
+assigns invocation spans to strings, and its backend detection is process-global, not
+thread-local. The pinned dependency exposes `fallback::force/unforce`; Checkmate's macro
+entry mutex serializes **every** expansion path while an unwind-safe guard selects the
+file parser. Only plain data/serialized token text crosses the boundary. Do not move
+compiler tokens into analysis, remove the entry lock, or assume a worker thread isolates
+the backend. Updates to proc-macro2 must rerun real Cargo tests that mix ordinary and
+automatic invocations, Unicode locations, and failed expansions.
 
 ## Where changes belong
 

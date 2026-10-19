@@ -419,9 +419,17 @@ fn import_origin_identity_failures_have_identity_guidance() {
 }
 
 #[test]
-fn public_macro_still_rejects_automatic_mode() {
-    let result = syn::parse_str::<Invocation>(
+fn automatic_mode_requires_compiler_metadata_instead_of_guessing_placement() {
+    let invocation = syn::parse_str::<Invocation>(
         "fn_sig = \"fn test()\", module = \"src/lib.rs\", start = 1, end = 1, context = \"auto\"",
+    )
+    .unwrap();
+    let root = tempfile::tempdir().unwrap();
+    let error = crate::generate::expand(invocation, root.path())
+        .unwrap_err()
+        .to_string();
+    assert!(
+        error.contains("CM003") && error.contains("compiler invocation metadata"),
+        "{error}"
     );
-    assert!(result.is_err());
 }

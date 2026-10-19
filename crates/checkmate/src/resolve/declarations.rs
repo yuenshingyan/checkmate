@@ -1,5 +1,5 @@
 //! Reusable paths and local type identities. No declaration is copied here.
-//! Invocation placement is an internal caller obligation until task 011 verifies it.
+//! Invocation placement is a caller obligation, verified by the public automatic pipeline.
 
 use crate::diagnostics::{Error, Kind, Result};
 use proc_macro2::{LineColumn, TokenStream};
@@ -76,6 +76,7 @@ pub(crate) enum Resolved {
 impl Resolved {
     /// Base imports do not contain type/const arguments. Those stay in the input
     /// AST; generation must rename the resolved root without dropping arguments.
+    #[cfg(test)]
     pub fn import_as(&self, alias: &syn::Ident) -> Result<TokenStream> {
         match self {
             Self::Original { base, member, .. } => {

@@ -1,22 +1,25 @@
 # Automatic context: supported subset and safety contract
 
-**Design status:** task 001 is complete. The automatic-context feature itself is
-not yet available. Tasks 002–014 implement and validate this contract.
+**Status:** tasks 001–011 implement the initial public opt-in. The public placement
+boundary is currently verified library roots and package integration-test roots;
+see [usage and restrictions](usage.md#automatic-context-opt-in). Tasks 012–014 cover
+context baselines, further integration regressions, and integrated documentation.
 
 ## Public boundary
 
-The future opt-in is `context = "auto"`, accepted both inline and as a string in a
+The opt-in is `context = "auto"`, accepted both inline and as a string in a
 TOML snippet definition. Omission keeps today's extraction behavior. No other
 context value is initially accepted. Do not mix inline fields into a config invocation.
 
 ```rust,ignore
-extract_fn! {
+// At the root of a verified Cargo integration test.
+checkmate::extract_fn! {
     fn_sig = "fn build_user(name: String) -> User",
-    module = "src/main.rs",
+    module = "src/lib.rs",
     start = 12,
     end = 15,
     output = user,
-    context = "auto", // planned, not accepted by today's macro
+    context = "auto",
 }
 ```
 
@@ -45,7 +48,8 @@ mode requires a parseable source file and a structurally valid selection.
 
 ## Supported/unsupported matrix for the first milestone
 
-These are the target limits, not a list of already implemented features.
+These are the analysis limits. Public invocation placement is narrower than the
+internal `SameTarget` resolver API and is checked separately; see usage above.
 
 | Construct | Policy | Reason / boundary |
 | --- | --- | --- |
@@ -126,10 +130,9 @@ unknown declarations, unknown module paths, unsafe promotion, macros/attributes,
 unsupported inference. Rust-generated borrow/type/privacy diagnostics remain rustc's
 responsibility; do not promise to remap every compiler span.
 
-Task 010 implements this as a [test-gated structured diagnostic boundary](diagnostics.md):
+Tasks 010–011 implement this as a [structured diagnostic boundary](diagnostics.md):
 reports include snippet identity, typed categories, optional subjects/sites/chains, bounded
-UTF-8-safe output, and remedies. Public integration remains task 011; existing macro
-errors have not been replaced or relabeled.
+UTF-8-safe output, and remedies. Ordinary-mode errors have not been replaced or relabeled.
 
 Context baselines are a separate versioned extension in task 012. Existing snippet
 snapshots remain readable. Discovered declaration contents and dependency mappings

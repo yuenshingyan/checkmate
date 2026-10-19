@@ -1,9 +1,9 @@
-# Function-local type promotion — internal walkthrough
+# Function-local type promotion
 
-**Not a public `extract_fn!` example yet.** Task 008 builds and tests promotion plans
-internally; task 011 still needs to verify invocation placement and expose automatic
-context. The configuration here is consumed by the repository's walkthrough test.
-The public macro cannot resolve this function-local `User` automatically today.
+Task 011 adds public automatic extraction in [`tests/automatic.rs`](tests/automatic.rs),
+using [`automatic.toml`](automatic.toml). It discovers `User` without a manual context
+import or declaration range. The original [`checkmate.toml`](checkmate.toml), including
+its historical comments, remains unchanged as the task-008 internal walkthrough input.
 
 [`src/lib.rs`](src/lib.rs) is ordinary Rust with no Checkmate markers or annotations:
 
@@ -35,8 +35,8 @@ cargo test -p checkmate-local-example
 
 The first command discovers `User`, plans a uniquely named copy next to the generated
 function, rewrites the signature/construction/field types, and prints the test-gated
-plan. The second tests the original library function's unchanged tuple-return behavior;
-it does not invoke an unpublished automatic-extraction API.
+plan. The second tests both the unchanged original function and public automatic
+extraction with field inspection and a comparison against the original tuple result.
 
 With the generated plan, the caller can inspect fields without naming the generated
 type explicitly:

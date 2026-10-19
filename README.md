@@ -11,9 +11,11 @@ markers, annotations, or wrappers to the original code.
 - Guard against line drift with explicitly reviewed snippet snapshots.
 - Get source-aware extraction errors and automatic rebuilds when input files change.
 
-Users write their own tests. Automatic discovery of surrounding types/imports is
-**not publicly enabled yet**. Scope/dependency analysis, local-type promotion, checked
-inherent implementations, and [structured diagnostics](docs/diagnostics.md) exist as tested internal foundations; see the [task backlog](docs/tasks/README.md).
+Users write their own tests. Opt-in `context = "auto"` now discovers supported context
+for verified **library-root → package integration-test** extractions. It reuses original
+types or copies supported function-local types with **new nominal identity**. Placement
+and syntax limits are deliberate; see [automatic mode](docs/usage.md#automatic-context-opt-in).
+Context snapshots remain [planned](docs/tasks/012-context-snapshots.md).
 
 ## Quick start
 
@@ -65,8 +67,9 @@ cargo test -p checkmate-struct-example
 cargo test -p checkmate --lib walkthroughs -- --nocapture --test-threads=1
 ```
 
-The public struct-return example still imports its type explicitly. The walkthroughs
-show internal analysis, not a new automatic-extraction API.
+Separate `tests/automatic.rs` files demonstrate public automatic mode without manual
+context imports in the struct-return, local-types, and inherent-methods packages.
+The original explicit-mode tests and internal walkthroughs remain available.
 
 ## Repository layout
 
@@ -74,8 +77,8 @@ show internal analysis, not a new automatic-extraction API.
 crates/checkmate/       Procedural macro, unit tests, and integration tests
 examples/basic/        Standalone consumer with source, tests, config, and snapshot
 examples/struct-return/ Struct/tuple examples and shared inputs for analysis walkthroughs
-examples/local-types/   Ordinary source for the internal local-type promotion walkthrough
-examples/inherent-methods/ Ordinary source for checked implementation walkthroughs
+examples/local-types/   Public local-type promotion and internal analysis walkthroughs
+examples/inherent-methods/ Public checked methods and internal analysis walkthroughs
 docs/usage.md          Public API and workflows
 docs/architecture.md   Current implementation and module responsibilities
 docs/tasks/            Small, dependency-ordered tasks for automatic context resolution

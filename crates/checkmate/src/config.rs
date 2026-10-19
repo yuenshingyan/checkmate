@@ -6,11 +6,12 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 use syn::{Expr, LitInt, LitStr};
 
-use crate::arguments::{Args, Invocation};
+use crate::arguments::{Args, Context, Invocation};
 use crate::source::read_text;
 
 pub(crate) struct Resolved {
     pub args: Args,
+    pub snippet: String,
     pub root: PathBuf,
     pub config: Option<PathBuf>,
     pub context: String,
@@ -31,12 +32,14 @@ struct Definition {
     end: usize,
     output: Option<String>,
     snapshot: Option<String>,
+    context: Option<String>,
 }
 
 impl Invocation {
     pub fn resolve(self, root: &Path) -> syn::Result<Resolved> {
         match self {
             Self::Inline(args) => Ok(Resolved {
+                snippet: args.fn_sig.value(),
                 args: *args,
                 root: root.into(),
                 config: None,
@@ -59,6 +62,15 @@ impl Invocation {
                         .ok_or_else(|| {
                             syn::Error::new(snippet.span(), format!("{context}: snippet not found"))
                         })?;
+                let mode = definition
+                    .context
+                    .as_deref()
+                    .map(Context::parse)
+                    .transpose()
+                    .map_err(|message| {
+                        syn::Error::new(config.span(), format!("{context}: {message}"))
+                    })?
+                    .unwrap_or_default();
                 let output = definition
                     .output
                     .map(|value| {
@@ -73,7 +85,9 @@ impl Invocation {
                     })
                     .transpose()?;
                 Ok(Resolved {
+                    snippet: snippet.value(),
                     args: Args {
+                        context: mode,
                         fn_sig: LitStr::new(&definition.fn_sig, config.span()),
                         module: LitStr::new(&definition.module, config.span()),
                         start: LitInt::new(&definition.start.to_string(), config.span()),

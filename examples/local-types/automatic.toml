@@ -1,0 +1,9 @@
+# Public automatic mode; original walkthrough inputs remain unchanged.
+[snippets.build_user]
+fn_sig = "fn build_user(name: String, active: bool) -> User"
+module = "src/lib.rs"
+start = 6
+end = 9
+output = "user"
+snapshot = "snapshots/user.rs"
+context = "auto"

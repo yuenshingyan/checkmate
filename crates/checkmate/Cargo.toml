@@ -2,17 +2,18 @@
 name = "checkmate"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.88"
 
 [lib]
 proc-macro = true
 
 [dependencies]
-proc-macro2 = { version = "1", features = ["span-locations"] }
+# Automatic analysis relies on this version's explicit fallback parser switch.
+proc-macro2 = { version = "=1.0.107", features = ["span-locations"] }
 quote = "1"
-syn = { version = "2", features = ["full", "visit"] }
+syn = { version = "2", features = ["full", "visit", "visit-mut"] }
 serde = { version = "1", features = ["derive"] }
 toml = "0.8"
 
 [dev-dependencies]
 tempfile = "3"
-syn = { version = "2", features = ["visit-mut"] }

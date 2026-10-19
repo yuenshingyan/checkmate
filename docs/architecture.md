@@ -7,7 +7,8 @@
 The root `Cargo.toml` is a virtual workspace. `crates/checkmate` is the procedural
 macro package; `examples/basic`, `examples/struct-return`, `examples/local-types`, and
 `examples/inherent-methods` are unpublished example packages. The last two supply ordinary
-source for internal promotion/implementation walkthroughs, not public automatic-context integrations. One root `Cargo.lock` records the workspace's resolved dependencies.
+source for internal promotion/implementation walkthroughs and public automatic-context
+integration tests. One root `Cargo.lock` records the workspace's resolved dependencies.
 
 The basic example keeps all of its own inputs together: `src/main.rs`, `src/tests.rs`,
 `checkmate.toml`, and `snapshots/add_if.rs`. Moving the example does not change its
@@ -23,16 +24,17 @@ All paths below are inside `crates/checkmate/src/`.
 | `arguments.rs` | Inline/config invocation syntax, duplicate/unknown option validation |
 | `config.rs` | TOML schema, named snippet lookup, package/config-relative path resolution |
 | `source.rs` | Read-only UTF-8 source IO, dependency path literals, bounded source previews |
-| `source/ast.rs` | Test-gated automatic-mode foundation: whole-file AST, exact selection, enclosing scope locations |
-| `scope.rs`, `scope/build.rs`, `scope/patterns.rs` | Test-gated lexical namespaces, scope tree, declaration identities, binding visibility and pattern validation |
-| `scope/imports.rs` | Test-gated explicit import trees, aliases, module paths, and unvalidated path provenance |
-| `source/origin.rs` | Test-gated source-to-library/binary-root identity from the package manifest |
-| `resolve.rs`, `resolve/collect.rs` | Test-gated reference/input collection across snippet, supplied signature, and output |
-| `resolve/catalog.rs`, `resolve/declarations.rs` | Test-gated original-item identities, namespace-aware reusable paths/imports, local-type IDs, conservative access checks |
-| `resolve/graph.rs`, `resolve/graph/collect.rs` | Test-gated deterministic transitive dependencies, recursive type/alias validation, dependency-chain errors |
-| `resolve/implementations.rs`, `resolve/implementations/methods.rs` | Test-gated inherent implementation dependencies and conservative owned-receiver dispatch checks |
-| `diagnostics.rs` | Test-gated structured categories, source/generated sites, subjects/chains, bounded reports, and explicit invocation-anchored conversion |
-| `resolve/promote.rs`, `resolve/promote/rewrite.rs` | Test-gated local-type promotion plans, unique names, identity-aware AST rewriting, and test-only emission |
+| `automatic.rs`, `automatic/placement.rs` | Opt-in orchestration, parser-backend boundary, verified integration-test placement and caller namespace checks |
+| `source/ast.rs` | Whole-file AST, exact selection, enclosing scope locations |
+| `scope.rs`, `scope/build.rs`, `scope/patterns.rs` | Lexical namespaces, scope tree, declaration identities, binding visibility and pattern validation |
+| `scope/imports.rs` | Explicit import trees, aliases and module paths; standalone provenance inspection remains test-only |
+| `source/origin.rs` | Source-to-library/binary-root identity from the package manifest |
+| `resolve.rs`, `resolve/collect.rs` | Reference/input collection across snippet, supplied signature, and output |
+| `resolve/catalog.rs`, `resolve/declarations.rs` | Original-item identities, namespace-aware reusable paths/imports, local-type IDs, conservative access checks |
+| `resolve/graph.rs`, `resolve/graph/collect.rs` | Deterministic transitive dependencies, recursive type/alias validation, dependency-chain errors |
+| `resolve/implementations.rs`, `resolve/implementations/methods.rs` | Inherent implementation dependencies and conservative owned-receiver dispatch checks |
+| `diagnostics.rs` | Structured categories, source/generated sites, subjects/chains, bounded reports, and explicit invocation-anchored conversion |
+| `resolve/promote.rs`, `resolve/promote/rewrite.rs` | Local-type promotion plans, unique names, identity-aware AST rewriting, and test-only emission |
 | `snapshot.rs` | Compare selected source against a reviewed baseline; report first mismatch |
 | `generate.rs` | Signature parsing, inclusive line selection, snapshot validation, body parsing, token emission |
 | `tests.rs` | Unit tests for syntax, configuration, ranges, diagnostics, and snapshots |
@@ -55,13 +57,42 @@ snippet produces a drift diagnostic first. Source, config, and snapshot files ar
 tracked with emitted `include_str!` items, including files that are not Rust modules.
 All generated items are gated by `cfg(test)`.
 
-Compilation reads inputs but never updates them. The supplied function signature
-and output are explicit; surrounding local values, imports, and types are not
-captured or inferred. Ordinary rustc type, ownership, and visibility checks still apply.
+Compilation reads inputs but never updates them. The supplied function signature,
+input types, and output remain explicit; surrounding runtime values are never captured.
+Ordinary rustc type, ownership, and visibility checks still apply.
+
+`context = "auto"` takes a separate route after configuration resolution:
+
+```text
+snapshot/range checks → whole-file AST and selection
+    → library origin + compiler/manifest/caller-root placement proof → scopes
+    → reference/input collection → resolver → graph → PromotionPlan
+    → test-only plan + file dependency markers
+```
+
+Only a complete approved plan emits tokens. The source, caller root, package manifest,
+configuration, and optional snapshot are tracked; no out-of-line source modules or
+workspace manifests are read. Caller proof uses physical compiler locations, literal
+fully qualified invocation tokens, target layout/name disambiguation, and conservative
+namespace/attribute checks. Public `SameTarget` placement remains disabled.
+
+File analysis uses proc-macro2's pinned fallback parser because compiler-parsed strings
+lack useful file-relative locations. A process-global backend switch is protected by a
+macro-entry mutex covering **all** invocations and an unwind-safe restoration guard.
+A worker thread alone does not isolate this global setting. Only plain data and token
+text cross the backend boundary; emitted tokens and bounded errors receive real
+invocation spans. The ordinary extraction path retains its original compiler tokens.
 
 ## Tests
 
 - `src/tests.rs`: isolated parser/expansion tests, using temporary projects where needed.
+- `src/options_tests.rs`, `src/automatic/tests.rs`: opt-in parity, checked placement,
+  complete dependency markers, all-item test gating, and fail-closed plans.
+- `tests/automatic.rs`: real-Cargo original/local identity, methods, privacy, backend
+  restoration, unsupported placement, incremental context/config/snapshot/manifest changes,
+  and input immutability.
+- `examples/*/tests/automatic.rs`: public automatic extraction using the existing
+  struct-return, local-types, and inherent-methods sources.
 - `tests/extraction.rs`: compiled functions using inline and TOML definitions.
 - `tests/fixtures/`: exact source selections, configurations, and snapshots; not all
   `.rs` files are standalone modules or valid crates.
@@ -89,15 +120,13 @@ captured or inferred. Ordinary rustc type, ownership, and visibility checks stil
   analysis of `examples/struct-return`, `examples/local-types`, and `examples/inherent-methods` source/config. See the
   [walkthrough guide](../examples/struct-return/README.md).
 
-## Planned work boundary
+## Automatic-context boundary
 
-The [design contract](automatic-context.md) defines the opt-in syntax and safety
-boundary. The [automatic-context backlog](tasks/README.md) describes new source AST, scope,
-reference-resolution, and dependency-graph passes. Whole-file source selection and
-lexical scope/import indexing, source-root mapping, reference collection, and original
-declaration resolution, dependency graphs, local-type promotion, and a conservative
-inherent-implementation subset, and structured diagnostics are implemented and tested, but remain test-gated until
-task 011 integrates the opt-in pipeline.
+The [design contract](automatic-context.md) defines the supported subset. Task 011 now
+wires the tested AST/scope/resolver/graph/promotion stages into the public opt-in, limited
+to verified library-source and package integration-test roots. Omission preserves the
+ordinary extraction pipeline. Context snapshots, further regressions, and integrated
+feature documentation remain [tasks 012–014](tasks/README.md).
 
 The lexical index distinguishes hoisted items from position-dependent locals and
 tracks type/value/macro namespaces separately. It models closure capture, item
@@ -155,8 +184,7 @@ wrapper layouts are not guessed. Type/where constraints are distinguished from l
 edges and alias-RHS references. Bounds, fields, aliases, and simple original-constant
 expressions are analyzed without evaluating helpers or initializers. Graph failures
 include a root-to-dependency chain and discard the entire plan. Promotion and
-implementation policy must still approve a graph before task 011 can emit anything
-through the public macro.
+implementation policy must also approve a graph before the public pipeline emits it.
 
 Promotion plans generate deterministic extraction-specific names and rewrite resolved
 paths in declarations, the signature, snippet, and output. Reference collection retains
@@ -185,13 +213,12 @@ through wrappers. A reporting request supplies snippet identity, file, and selec
 Reports are capped at 8 KiB with bounded Unicode-safe previews and escaped controls.
 Generated signature/output positions are never previewed using original-file text.
 The explicit conversion to a compile error takes the invocation span; ordinary rustc
-type/borrow/privacy errors are not remapped. Public wiring remains task 011.
+type/borrow/privacy errors are not remapped. The public adapter renders before discarding
+analysis spans and constructs the `syn::Error` with the original invocation span.
 
-All planned items are test-gated. Copied structs/enums are explicitly recorded as new
-nominal identities; aliases follow their targets, and reusable originals are never copied.
-Known caller/analysis identifiers are checked for generated-name collisions. Invocation
-placement and unknown caller context still need task 011 verification. None of this
-changes ordinary `extract_fn!` behavior or accepts `context = "auto"` publicly.
-
-The current source/argument/generation separation provides places to add them without
-turning the public proc-macro entry point into the implementation itself.
+Generated items are test-gated, but the analysis implementation is production code.
+Copied structs/enums are explicitly recorded and documented as new nominal identities;
+aliases follow their targets, and reusable originals are never copied. Known caller and
+analysis identifiers are checked for collisions. Calls to the requested generated function
+in user tests are references, not conflicting declarations. Unsupported caller contexts
+fail rather than being treated as empty scopes.

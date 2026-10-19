@@ -1,8 +1,8 @@
-# Automatic-context diagnostics — internal foundation
+# Automatic-context diagnostics
 
-Task 010 adds structured diagnostics to the **test-gated** automatic-context analysis.
-It does not change today's public macro messages or enable `context = "auto"`.
-Task 011 must connect the verified invocation context to this reporting boundary.
+Task 010 supplies structured analysis errors; task 011 connects them to public
+`context = "auto"` with verified invocation context. Ordinary extraction retains its
+existing diagnostics. Parser/configuration errors remain ordinary `syn` errors.
 
 ## Runnable example
 
@@ -35,7 +35,8 @@ performs no IO. It never creates or updates a baseline.
 
 ## Categories
 
-These identifiers are tested internal codes, not yet a published diagnostic API.
+These codes identify public automatic-analysis reports; exact message wording is not
+a stable machine-readable API.
 Categories are assigned at error creation and preserved through context/dependency
 wrappers; they are **not inferred by matching error-message strings**.
 

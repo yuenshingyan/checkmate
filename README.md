@@ -130,7 +130,8 @@ See the [snippet migration guide](docs/usage.md#migration-from-unchecked-omissio
   tested versions, and saved-file limitations.
 - [Architecture](docs/architecture.md): discovery, scope resolution, graph, promotion, and emission.
 - [Regression matrix](docs/regression-tests.md) and [coverage limits](docs/coverage.md):
-  behavioral tests and bounded properties are not formal guarantees or new coverage measurements.
+  behavioral tests and bounded properties are not formal guarantees; mapped-line measurements
+  are reported separately for exact revisions.
 - [Completed milestone and deferred work](docs/tasks/README.md): task records and stacked branches.
 
 Paths in inline options and `config` are relative to the invoking package. Paths **inside**

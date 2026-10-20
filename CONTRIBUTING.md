@@ -71,8 +71,25 @@ control; suppressing `macro-error` or merely passing Cargo is not an editor regr
 
 ## Coverage and generated properties
 
-See [the measured baseline and limitations](docs/coverage.md). Task 008 adds bounded,
-deterministic property-style tests without an additional testing dependency:
+See [the measured refresh and limitations](docs/coverage.md) for exact revisions,
+implementation-file versus workspace scope, and the retained task-007 baseline. Use
+Python 3.12+ and matching LLVM tools for isolated coverage measurements:
+
+```sh
+rustup component add llvm-tools-preview --toolchain 1.99.1
+python3 -B -m unittest discover -s scripts -p 'test_*helpers.py'
+OUT=$(mktemp -d)
+python3 -B scripts/measure_coverage.py --revision HEAD --toolchain 1.99.1 --output "$OUT/run"
+```
+
+The runner measures a committed archive, not uncommitted edits. Its output must be new
+and outside the checkout. Inspect its logs, scope classification, and input inventories
+before publishing results; never combine stale objects/profiles or equate a zero count
+with absence of tests. Direct-rustc probes and deleted native objects have coverage limits.
+Coverage does not replace Cargo or editor regression checks and is not a nightly branch-
+coverage measurement.
+
+Task 008 adds bounded, deterministic property-style tests without an additional testing dependency:
 
 ```sh
 cargo test -p checkmate --lib resolve::graph::properties

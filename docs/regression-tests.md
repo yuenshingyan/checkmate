@@ -163,7 +163,17 @@ and editor regressions, not formal guarantees or new coverage measurements.
   necessary for internal distinctions that native examples alone cannot exhaust.
 
 These are regression results, not formal verification, exhaustive Rust coverage, or a new
-line/branch coverage measurement. The published [coverage figures](coverage.md) still apply
-only to their task-007 baseline. Task 014 adds the
+line/branch coverage measurement. The separate [coverage refresh](coverage.md) identifies
+its measured commits and retains the historical task-007 baseline. Task 014 adds the
 [complete public automatic example](../examples/automatic-context/README.md); its tests
 complement these task-013 regressions without changing their scope.
+
+## Coverage-driven follow-up
+
+Six focused groups added after the CI merge bring the workspace to **311 passing Rust
+tests, three ignored**: exact-one-root source/caller inference, field-specific source/caller
+manifest validation, read-only rejection of malformed snapshot tokens, and native value
+checks for struct patterns in copied methods. They add no production behavior or original
+source/snapshot edits. The [measurement report](coverage.md#meaningful-gaps-addressed)
+explains the gaps, controls, and separate before/after line counts. Ten Python helper tests
+(six coverage-report, four editor) remain separate from Cargo's count.

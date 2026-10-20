@@ -1,0 +1,85 @@
+{
+  "branch_coverage_measured": false,
+  "direct_rustc_probes_automatically_instrumented": false,
+  "format": "checkmate-coverage-measurement",
+  "generated_code_coverage_complete": false,
+  "metric": "LLVM per-file summary.lines (mapped lines)",
+  "runs": [
+    {
+      "archived_files": 143,
+      "library": {
+        "count": 6256,
+        "covered": 5725,
+        "files": 27,
+        "percent": 91.5121
+      },
+      "library_report": "945885e-library.txt",
+      "objects": 25,
+      "proc_macro_objects": 1,
+      "profiles": 570,
+      "raw_export_sha256": "39eeb811c00e9aa80daa7e9d90cbcc8ee97a614b5830a3453696523ba0f70dff",
+      "revision": "945885e483fd7776d49e3a2f13c998c4864f408f",
+      "source_unchanged": true,
+      "tests": {
+        "failed": 0,
+        "filtered_out": 0,
+        "ignored": 3,
+        "measured": 0,
+        "passed": 305,
+        "result_summaries": 29
+      },
+      "toolchain": "1.99.1",
+      "versions": {
+        "cargo": "cargo 1.99.1 (5f94df478 2026-08-27)\n",
+        "llvm-cov": "LLVM (http://llvm.org/):\n  LLVM version 23.1.1-rust-1.99.1-stable\n  Optimized build.\n",
+        "llvm-profdata": "LLVM (http://llvm.org/):\n  LLVM version 23.1.1-rust-1.99.1-stable\n  Optimized build.\n",
+        "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n"
+      },
+      "workspace": {
+        "count": 13649,
+        "covered": 13068,
+        "files": 70,
+        "percent": 95.7433
+      }
+    },
+    {
+      "archived_files": 145,
+      "library": {
+        "count": 6256,
+        "covered": 5751,
+        "files": 27,
+        "percent": 91.9277
+      },
+      "library_report": "3a55fa1-library.txt",
+      "objects": 25,
+      "proc_macro_objects": 1,
+      "profiles": 570,
+      "raw_export_sha256": "11a70d2fbcb82bf1b14c027fde6eaf6df32778ad9b14abeb25da329a4ab12a08",
+      "revision": "3a55fa15aecd9371a585cf16be2904d88cbe8f0c",
+      "source_unchanged": true,
+      "tests": {
+        "failed": 0,
+        "filtered_out": 0,
+        "ignored": 3,
+        "measured": 0,
+        "passed": 311,
+        "result_summaries": 29
+      },
+      "toolchain": "1.99.1",
+      "versions": {
+        "cargo": "cargo 1.99.1 (5f94df478 2026-08-27)\n",
+        "llvm-cov": "LLVM (http://llvm.org/):\n  LLVM version 23.1.1-rust-1.99.1-stable\n  Optimized build.\n",
+        "llvm-profdata": "LLVM (http://llvm.org/):\n  LLVM version 23.1.1-rust-1.99.1-stable\n  Optimized build.\n",
+        "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n"
+      },
+      "workspace": {
+        "count": 13813,
+        "covered": 13258,
+        "files": 70,
+        "percent": 95.982
+      }
+    }
+  ],
+  "scope": "File-based implementation scope excludes separate test files and example packages; inline cfg(test) code remains. See ../coverage.md.",
+  "version": 1
+}

@@ -11,7 +11,7 @@ and checkout does not persist credentials.
 | --- | --- | --- |
 | Rust matrix | Rust 1.88.0 and 1.99.1 on Ubuntu 24.04, macOS 14, Windows 2022 | Full locked workspace tests, including temporary native consumers, plus the basic executable |
 | Moving compiler | Latest stable on Ubuntu 24.04 | Same regressions; detects compatibility drift without changing the pinned editor pair |
-| Quality | Rust 1.99.1 on Ubuntu 24.04 | Package-scoped formatting, warning-denying Clippy and rustdoc, Python LSP assertion-helper tests |
+| Quality | Rust 1.99.1 on Ubuntu 24.04 | Package-scoped formatting, warning-denying Clippy and rustdoc, Python editor/coverage-helper tests |
 | Editor | Rust 1.99.1 plus rust-analyzer 0.3.3081 on Ubuntu 24.04 | Real LSP expansions, hovers, positive diagnostics, unsaved-token rejection, and recovery |
 | `CI required` | Aggregate | Fails unless every Rust matrix leg, quality job, and editor job succeeded |
 
@@ -106,7 +106,7 @@ RUSTUP_TOOLCHAIN=1.99.1 cargo test --workspace --locked
 cargo fmt -p checkmate --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps --locked
-python3 -B scripts/test_editor_helpers.py
+python3 -B -m unittest discover -s scripts -p 'test_*helpers.py'
 python3 scripts/test_rust_analyzer.py /path/to/verified/rust-analyzer --timeout 180
 ```
 
@@ -116,5 +116,6 @@ the POSIX inline environment syntax above is not PowerShell syntax. The workflow
 Bash explicitly for cross-platform Rust jobs. To validate workflow syntax locally, run
 [`actionlint`](https://github.com/rhysd/actionlint) from the repository root.
 
-These checks are native/compiler/editor regressions, not formal guarantees or a new
-coverage measurement. The [published coverage baseline](coverage.md) remains historical.
+These checks are native/compiler/editor regressions, not formal guarantees or a coverage
+measurement. The separate [coverage refresh](coverage.md) records exact measured commits;
+CI runs the pure report-helper tests, not instrumented coverage on every PR.

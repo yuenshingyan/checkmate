@@ -1,0 +1,3 @@
+# Keep checked-out, line-selected source and reviewed baselines byte-stable on Windows.
+# Tests that exercise CRLF construct those inputs explicitly in temporary packages.
+* text=auto eol=lf

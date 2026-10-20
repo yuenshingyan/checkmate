@@ -1,6 +1,7 @@
 //! Default snippet guards through native Cargo. Baselines are hand-authored here,
 //! before compilation; Consumer inventories every input across every Cargo run.
 mod support;
+use std::path::Path;
 use support::Consumer;
 
 const LINE: &str = "let value = n + 1;\n";
@@ -23,9 +24,8 @@ fn probe(invocation: &str, name: &str) -> String {
     )
 }
 
-fn missing(c: &Consumer, path: &str) {
-    let resolved = c.path(path);
-    c.test(&[resolved.to_str().unwrap()]);
+fn missing(c: &Consumer, resolved: &Path) {
+    c.test(&["cannot read", resolved.to_str().unwrap()]);
     assert!(
         !resolved.exists(),
         "compilation created {}",
@@ -33,11 +33,8 @@ fn missing(c: &Consumer, path: &str) {
     );
 }
 
-fn drift(c: &Consumer, path: &str) {
-    c.test(&[
-        "snippet differs from snapshot",
-        c.path(path).to_str().unwrap(),
-    ]);
+fn drift(c: &Consumer, resolved: &Path) {
+    c.test(&["snippet differs from snapshot", resolved.to_str().unwrap()]);
 }
 
 #[test]
@@ -51,14 +48,14 @@ fn inline_defaults_raw_identifiers_overrides_and_incremental_guards() {
             let path = format!("snapshots/{}.rs", name.trim_start_matches("r#"));
             let call = inline(name, auto, "");
             c.write("tests/probe.rs", &probe(&call, name));
-            missing(&c, &path);
+            missing(&c, &c.path(&path));
             assert!(!c.path("snapshots/r#type.rs").exists());
             c.write(&path, LINE); // Explicit outer-harness review, not macro output.
             c.test(&[]);
 
             // Only baseline bytes change; no source/caller/config touch or clean.
             c.write(&path, "let value = n + 9;\n");
-            drift(&c, &path);
+            drift(&c, &c.path(&path));
             c.write(&path, LINE);
             c.test(&[]);
 
@@ -74,7 +71,7 @@ fn inline_defaults_raw_identifiers_overrides_and_incremental_guards() {
             );
             c.test(&[]);
             c.write("review/approved.rs", "wrong explicit baseline\n");
-            drift(&c, "review/approved.rs");
+            drift(&c, &c.path("review/approved.rs"));
             c.write("review/approved.rs", LINE);
             c.test(&[]);
 
@@ -110,13 +107,16 @@ fn config_directory_defaults_options_and_source_drift_precede_parsing() {
     c.write("review/snapshots/named_definition.rs", LINE);
     c.write("review/snapshots/r#type.rs", LINE);
     let default = "review/snapshots/type.rs";
+    // Resolution joins the config directory and option separately. Match that
+    // exact displayed path, including Windows separators between those parts.
+    let resolved_default = c.path("review").join("snapshots/type.rs");
     for auto in [false, true] {
         c.write("review/definitions.toml", &config(auto, ""));
-        missing(&c, default);
+        missing(&c, &resolved_default);
         c.write(default, LINE);
         c.test(&[]);
         c.write(default, "let value = n + 2;\n");
-        drift(&c, default);
+        drift(&c, &resolved_default);
         c.write(default, LINE);
         c.test(&[]);
 
@@ -128,7 +128,7 @@ fn config_directory_defaults_options_and_source_drift_precede_parsing() {
         );
         let report = c.test(&[
             "snippet differs from snapshot",
-            c.path(default).to_str().unwrap(),
+            resolved_default.to_str().unwrap(),
         ]);
         assert!(
             !report.contains("not a complete Rust statement/expression sequence"),
@@ -146,7 +146,7 @@ fn config_directory_defaults_options_and_source_drift_precede_parsing() {
         );
         c.test(&[]);
         c.write("review/chosen.rs", "wrong explicit baseline\n");
-        drift(&c, "review/chosen.rs");
+        drift(&c, &c.path("review").join("chosen.rs"));
         c.write("review/chosen.rs", LINE);
         c.test(&[]);
         c.write("review/definitions.toml", &config(auto, "snapshot = false"));

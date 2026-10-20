@@ -100,6 +100,16 @@ or compiler correctness. To inspect negotiation, set `RA_LOG=proc_macro_api=info
 rust-analyzer's `--log-file` option: the tested setup reports `BidirectionalPostcardPrototype`,
 not `LegacyJson`.
 
+## Automated compatibility check
+
+The [CI workflow](ci.md) provisions the corresponding official Linux x86-64 release
+from the fixed `2026-10-12` tag, verifies a committed SHA256 before execution, and runs
+this same harness with Rust 1.99.1. Missing artifacts, changed digests, negotiation or
+analysis failures fail the job; no latest-version or diagnostic-suppression fallback is
+allowed. The editor job is a prerequisite of `CI required`, separate from the compiler
+matrix. Its run result supplies Linux evidence; Windows compiler jobs do not test the
+POSIX-only editor harness. See the CI guide for merge-protection setup and upgrade rules.
+
 ## Upstream details
 
 These version-specific implementation details explain the compatibility boundary:

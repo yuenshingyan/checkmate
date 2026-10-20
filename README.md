@@ -158,6 +158,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 
 Format the macro crate with `cargo fmt -p checkmate`. Do not broadly format line-selected
 example sources or fixtures: their ranges and reviewed snapshots are intentional.
-See [CONTRIBUTING.md](CONTRIBUTING.md). The milestone was developed on dependency-stacked
+See [CONTRIBUTING.md](CONTRIBUTING.md) and the [CI/compatibility matrix](docs/ci.md),
+including the Rust 1.88 MSRV and separate pinned editor check. The milestone was developed on dependency-stacked
 branches; the task records preserve that implementation history. Completion does not
 imply a release or support for deferred features.

@@ -48,12 +48,15 @@ because rustc can suppress them after expansion failures. This oracle checks the
 and review APIs, not every possible internal helper item.
 
 Normal production library builds do **not** expand integration-test macros. That isolation
-check is not evidence that an expanded automatic function is cfg-gated. The Unix native
-compiler wrapper in [`context_snapshots.rs`](../crates/checkmate/tests/context_snapshots.rs)
+check is not evidence that an expanded automatic function is cfg-gated. The portable native
+Rust compiler wrapper used by [`context_snapshots.rs`](../crates/checkmate/tests/context_snapshots.rs)
 retains Cargo integration-target identity while removing rustc's `--test`. It checks report
 accessor and extracted-function absence **independently**, with an unreferenced successful
 build as a control. The new ordinary binary check above needs no wrapper and runs on all
-platforms. Existing planner tests additionally inspect cfg gating of every emitted item.
+platforms. The wrapper now runs on Windows too; a separate regression checks exact
+argument filtering, empty/quoted/Unicode arguments, and success/failure status forwarding.
+Existing planner tests additionally inspect cfg gating of every emitted item. See
+[CI and compatibility](ci.md) for the compiler/platform matrix and editor check.
 
 ## Rebuild and input preservation
 

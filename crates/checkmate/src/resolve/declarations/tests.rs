@@ -94,7 +94,10 @@ impl Fixture {
         );
         let consumer = self.temp.path().join("consumer.rs");
         fs::write(&consumer, format!("{imports}\nfn main() {{ {body} }}")).unwrap();
-        let executable = self.temp.path().join("consumer");
+        let executable = self
+            .temp
+            .path()
+            .join(format!("consumer{}", std::env::consts::EXE_SUFFIX));
         let output = rustc()
             .arg("--edition=2024")
             .arg(&consumer)

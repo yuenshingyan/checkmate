@@ -42,6 +42,17 @@ def compact(text):
     return re.sub(r",([)\]}])", r"\1", re.sub(r"\s+", "", text))
 
 
+def expansion_code(source, aliases):
+    # Exclude embedded source/snapshot strings before resolving generated imports.
+    code = re.sub(r'"(?:\\.|[^"\\])*"', '""', source)
+    # Both `use ::std` and `use::std` are valid Rust/RA pretty-printing.
+    for route, alias in re.findall(r"\buse\b\s*([\w\s:]+)\s+as\s+(\w+)\s*;", code):
+        aliases[alias] = route.strip().split("::")[-1].strip()
+    for alias, name in aliases.items():
+        code = re.sub(r"\b" + re.escape(alias) + r"\b", name, code)
+    return code
+
+
 class LSP:
     def __init__(self, binary, timeout):
         self.timeout = timeout
@@ -232,13 +243,7 @@ def run(client):
         result = query(key, "rust-analyzer/expandMacro", "extract_fn!", occurrence)
         source = (result or {}).get("expansion", "")
         require(source and "compile_error!" not in source, f"{key}: invalid expansion: {source}")
-        # Resolve generated import aliases, and exclude embedded source/snapshot
-        # strings so an assertion cannot pass just by matching an include_str!.
-        code = re.sub(r'"(?:\\.|[^"\\])*"', '""', source)
-        for route, alias in re.findall(r"use\s+([\w\s:]+)\s+as\s+(\w+)\s*;", code):
-            aliases[alias] = route.strip().split("::")[-1].strip()
-        for alias, name in aliases.items():
-            code = re.sub(r"\b" + alias + r"\b", name, code)
+        code = expansion_code(source, aliases)
         for fragment in fragments:
             require(compact(fragment) in compact(code), f"{key}: missing {fragment!r} in {code[:6000]}")
         print(f"PASS expansion {key} #{occurrence + 1}")

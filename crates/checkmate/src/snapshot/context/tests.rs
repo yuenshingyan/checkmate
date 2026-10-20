@@ -352,6 +352,39 @@ fn ambiguous_same_name_local_anchors_fail_closed() {
 }
 
 #[test]
+fn malformed_token_paths_and_routes_leave_review_inputs_unchanged() {
+    let fixture = Fixture::new(LOCAL);
+    let before = files(fixture.temp.path());
+    let snapshot = fixture.snapshot();
+    let rendered = snapshot.render().unwrap();
+    snapshot.check(&rendered).unwrap();
+    let value: toml::Value = toml::from_str(&rendered).unwrap();
+    for field in ["path", "route"] {
+        let mut invalid = value.clone();
+        let mapping = &mut invalid["references"].as_array_mut().unwrap()[0];
+        let table = if field == "route" {
+            mapping["target"].as_table_mut().unwrap()
+        } else {
+            mapping.as_table_mut().unwrap()
+        };
+        table.insert(field.into(), toml::Value::String("(".into()));
+        let text = toml::to_string(&invalid).unwrap();
+        // Valid strict-schema TOML: only token parsing should reject this baseline.
+        let _: ContextSnapshot = toml::from_str(&text).unwrap();
+        let error = snapshot.check(&text).unwrap_err();
+        assert_eq!(error.kind, Kind::ContextSnapshot, "{field}");
+        assert!(
+            error
+                .to_string()
+                .contains("invalid tokens in context snapshot"),
+            "{field}: {error}"
+        );
+        assert_eq!(snapshot.render().unwrap(), rendered);
+        assert_eq!(files(fixture.temp.path()), before);
+    }
+}
+
+#[test]
 fn malformed_versions_schema_and_embedded_syntax_fail_read_only() {
     let fixture = Fixture::new(LOCAL);
     let before = files(fixture.temp.path());

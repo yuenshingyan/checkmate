@@ -17,6 +17,70 @@ fn package(extra: &str, files: &[&str]) -> tempfile::TempDir {
 }
 
 #[test]
+fn explicit_binary_inference_requires_exactly_one_source_root() {
+    for candidates in [
+        vec![],
+        vec!["src/bin/tool.rs"],
+        vec!["src/bin/tool/main.rs"],
+        vec!["src/bin/tool.rs", "src/bin/tool/main.rs"],
+    ] {
+        let mut inputs = vec!["src/lib.rs"];
+        inputs.extend(&candidates);
+        let root = package("[[bin]]\nname = \"tool\"\n", &inputs);
+        let paths: Vec<_> = std::iter::once("Cargo.toml")
+            .chain(inputs.iter().copied())
+            .collect();
+        let before: Vec<_> = paths
+            .iter()
+            .map(|p| fs::read(root.path().join(p)).unwrap())
+            .collect();
+        let source = if candidates.len() == 1 {
+            candidates[0]
+        } else {
+            "src/lib.rs"
+        };
+        let result = SourceOrigin::discover(root.path(), Path::new(source));
+        if candidates.len() == 1 {
+            let origin = result.unwrap();
+            assert_eq!(origin.target_kind, TargetKind::Binary);
+            assert_eq!(origin.target_name, "tool");
+            assert_eq!(
+                origin.source,
+                root.path().join(source).canonicalize().unwrap()
+            );
+        } else {
+            let error = result.unwrap_err();
+            assert_eq!(error.kind, Kind::SourceIdentity);
+            assert!(
+                error
+                    .to_string()
+                    .contains("binary tool: ambiguous or missing inferred root"),
+                "{error}"
+            );
+        }
+        for (path, bytes) in paths.iter().zip(before) {
+            assert_eq!(fs::read(root.path().join(path)).unwrap(), bytes);
+        }
+    }
+}
+
+#[test]
+fn malformed_source_fields_report_their_specific_validation_errors() {
+    for (extra, message) in [
+        ("autobins = 'yes'", "package.autobins must be a boolean"),
+        ("[lib]\npath = 3", "path must be a string"),
+    ] {
+        let root = package(extra, &["src/lib.rs"]);
+        let manifest = fs::read(root.path().join("Cargo.toml")).unwrap();
+        let error = SourceOrigin::discover(root.path(), Path::new("src/lib.rs")).unwrap_err();
+        assert_eq!(error.kind, Kind::SourceIdentity);
+        assert!(error.to_string().contains(message), "{error}");
+        assert_eq!(fs::read(root.path().join("Cargo.toml")).unwrap(), manifest);
+        assert_eq!(fs::read(root.path().join("src/lib.rs")).unwrap(), b"");
+    }
+}
+
+#[test]
 fn conventional_roots_have_distinct_target_identities() {
     let root = package("", &["src/lib.rs", "src/main.rs"]);
     let lib = SourceOrigin::discover(root.path(), Path::new("src/lib.rs")).unwrap();

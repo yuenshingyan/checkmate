@@ -235,6 +235,86 @@ impl Fixture {
 }
 
 #[test]
+fn explicit_test_inference_requires_exactly_one_caller_root() {
+    for candidates in [
+        vec![],
+        vec!["tests/probe.rs"],
+        vec!["tests/probe/main.rs"],
+        vec!["tests/probe.rs", "tests/probe/main.rs"],
+    ] {
+        let f = Fixture::new();
+        fs::remove_file(f.path("tests/probe.rs")).unwrap();
+        f.manifest("", "[[test]]\nname = \"probe\"");
+        f.write("custom/caller.rs", INVOCATION);
+        for path in &candidates {
+            f.write(path, INVOCATION);
+        }
+        let file = candidates.first().copied().unwrap_or("custom/caller.rs");
+        let caller = f.caller(file, "probe");
+        let paths: Vec<_> = ["Cargo.toml", "src/lib.rs", "custom/caller.rs"]
+            .into_iter()
+            .chain(candidates.iter().copied())
+            .collect();
+        let before: Vec<_> = paths.iter().map(|p| fs::read(f.path(p)).unwrap()).collect();
+        let result = f.verify(&caller);
+        if candidates.len() == 1 {
+            // Placement exposes the verified root, not a target kind/name;
+            // verification proves this caller's `probe` integration-test identity.
+            let placement = result.unwrap();
+            assert_eq!(placement.caller, f.path(file).canonicalize().unwrap());
+            assert_eq!(caller.crate_name.as_deref(), Some("probe"));
+        } else {
+            let error = result.err().expect("inference must fail closed");
+            assert_eq!(error.kind, crate::diagnostics::Kind::SourceIdentity);
+            assert!(
+                error.to_string().contains(
+                    "explicit target has ambiguous/missing inferred path; specify its Cargo path"
+                ),
+                "{error}"
+            );
+        }
+        for (path, bytes) in paths.iter().zip(before) {
+            assert_eq!(fs::read(f.path(path)).unwrap(), bytes);
+        }
+    }
+}
+
+#[test]
+fn malformed_target_fields_do_not_bypass_placement_validation() {
+    for (options, targets, message) in [
+        (
+            "autotests = 'yes'",
+            "",
+            "Cargo auto-target switches must be booleans",
+        ),
+        (
+            "",
+            "[[test]]\npath = 'tests/probe.rs'",
+            "explicit Cargo targets require a name for placement proof",
+        ),
+        (
+            "",
+            "[[test]]\nname = 'probe'\npath = 3",
+            "Cargo target paths must be strings",
+        ),
+    ] {
+        let f = Fixture::new();
+        f.manifest(options, targets);
+        let paths = ["Cargo.toml", "src/lib.rs", "tests/probe.rs"];
+        let before: Vec<_> = paths.iter().map(|p| fs::read(f.path(p)).unwrap()).collect();
+        let error = f
+            .verify(&f.caller("tests/probe.rs", "probe"))
+            .err()
+            .expect("invalid Cargo field must fail");
+        assert_eq!(error.kind, crate::diagnostics::Kind::SourceIdentity);
+        assert!(error.to_string().contains(message), "{error}");
+        for (path, bytes) in paths.iter().zip(before) {
+            assert_eq!(fs::read(f.path(path)).unwrap(), bytes);
+        }
+    }
+}
+
+#[test]
 fn unrelated_implicit_default_binary_does_not_invalidate_the_test_root() {
     let f = Fixture::new();
     f.write("src/main.rs", "fn main() {}\n");

@@ -77,6 +77,34 @@ fn actual_unit_tuple_and_named_construction_prove_owned_receivers() {
 }
 
 #[test]
+fn copied_method_struct_patterns_preserve_owner_identity_and_field_bindings() {
+    for (pattern, result) in [
+        ("Self { n }", "n"),
+        ("User { n: renamed }", "renamed"),
+        ("Alias { n }", "n"),
+    ] {
+        let source = format!(
+            "pub fn source(n: u8) -> u8 {{\nstruct User {{ n: u8 }}\ntype Alias = User;\nimpl User {{ fn take(self) -> u8 {{ let {pattern} = self; {result} }} }}\nlet user = User {{ n }};\nlet value = user.take();\nvalue\n}}\n"
+        );
+        let f = Fixture::new(&source);
+        let p = plan(
+            &f,
+            "let user",
+            "let value",
+            "fn build(n: u8) -> u8",
+            Some("value"),
+        )
+        .unwrap();
+        assert_eq!(p.copied_nominal_types.len(), 1);
+        success(
+            &f,
+            &[&p],
+            "for n in [0, 7, 255] { assert_eq!(build(n), n); assert_eq!(build(n), source_model::source(n)); }",
+        );
+    }
+}
+
+#[test]
 fn shared_example_source_compiles_into_a_working_generated_function() {
     let f = Fixture::new(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
